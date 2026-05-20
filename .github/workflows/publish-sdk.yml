@@ -39,6 +39,7 @@ jobs:
         with:
           node-version: 24
           cache: pnpm
+          registry-url: 'https://registry.npmjs.org'
 
       - run: pnpm install --frozen-lockfile --filter @anybill/sdk
         if: steps.check.outputs.changed == 'true'
