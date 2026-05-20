@@ -1,4 +1,15 @@
+{
+	# Suppress noisy Caddy startup & runtime logs — only show errors.
+	admin off
+	log {
+		level ERROR
+	}
+}
+
 :3000 {
+	log {
+		output discard
+	}
 	handle /api/* {
 		reverse_proxy localhost:3001
 	}

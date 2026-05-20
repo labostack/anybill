@@ -122,7 +122,8 @@ import { HealthController } from "../controllers/HealthController";
         express.urlencoded({ extended: true }),
     ],
     logger: {
-        disableRoutesSummary: false,
+        disableRoutesSummary: process.env.VERBOSE_LOGS !== "true",
+        level: process.env.VERBOSE_LOGS === "true" ? "info" : "warn",
     },
 })
 export class Server {

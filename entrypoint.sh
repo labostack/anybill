@@ -8,5 +8,4 @@ mkdir -p "${DB_DIR:-/data}"
 caddy run --config /etc/caddy/Caddyfile --adapter caddyfile &
 
 # Start the backend (foreground).
-echo "[anybill] Starting server..."
 exec node dist/index.js

@@ -25,7 +25,8 @@ async function main(): Promise<void> {
     const platform = await PlatformExpress.bootstrap(Server);
     await platform.listen();
 
-    console.log(`[anybill] Backend running on port ${process.env.PORT || 3000}`);
+    const port = process.env.PORT || 3000;
+    console.log(`[anybill] Server ready on port ${port}`);
 }
 
 main().catch(console.error);

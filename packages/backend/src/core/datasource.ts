@@ -27,5 +27,5 @@ export const AppDataSource = new DataSource({
     database: process.env.DB_PATH || "./data/anybill.db",
     entities: [Account, Subscription, Subscriber, Invoice, ApiKey, WebhookEndpoint, WebhookDelivery],
     synchronize: true,
-    logging: process.env.NODE_ENV !== "production",
+    logging: process.env.VERBOSE_LOGS === "true",
 });
