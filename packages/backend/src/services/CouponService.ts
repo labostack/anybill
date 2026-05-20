@@ -11,6 +11,7 @@
 import { Injectable, Inject } from "@tsed/di";
 import { Logger } from "@tsed/logger";
 import { AppDataSource } from "../core/datasource";
+import { ErrorCode } from "../core/errors/ErrorCode";
 import { Coupon } from "../entities/Coupon";
 import { Invoice } from "../entities/Invoice";
 import { Subscription } from "../entities/Subscription";
@@ -33,60 +34,64 @@ export class CouponService {
      */
     async validateCoupon(
         code: string,
-        subscriptionId: string,
-        uid: string,
-    ): Promise<{ valid: boolean; coupon?: Coupon; error?: string }> {
-        const couponRepo = AppDataSource.getRepository(Coupon);
+        subscriptionId?: string,
+        uid?: string,
+    ): Promise<{ valid: boolean; error?: string; errorCode?: ErrorCode; coupon?: Coupon }> {
+        const coupon = await AppDataSource.getRepository(Coupon).findOne({
+            where: { code: code.toUpperCase() },
+        });
 
-        // 1. Find coupon by code (case-insensitive: convert to uppercase)
-        const coupon = await couponRepo.findOneBy({ code: code.toUpperCase() });
-        if (!coupon) return { valid: false, error: "Coupon not found" };
+        if (!coupon) return { valid: false, errorCode: ErrorCode.COUPON_NOT_FOUND, error: "Coupon not found" };
 
-        // 2. Check isActive
-        if (!coupon.isActive) return { valid: false, error: "Coupon is inactive" };
+        // 1. Check active status
+        if (!coupon.isActive) return { valid: false, errorCode: ErrorCode.COUPON_INACTIVE, error: "Coupon is inactive" };
 
-        // 3. Check expiry
-        if (coupon.expiresAt && coupon.expiresAt <= new Date()) {
-            return { valid: false, error: "Coupon has expired" };
+        // 2. Check expiration
+        if (coupon.expiresAt && coupon.expiresAt < new Date()) {
+            return { valid: false, errorCode: ErrorCode.COUPON_EXPIRED, error: "Coupon has expired" };
         }
 
-        // 4. Check maxRedemptions
+        // 3. Check overall usage limit
         if (coupon.maxRedemptions !== null && coupon.timesRedeemed >= coupon.maxRedemptions) {
-            return { valid: false, error: "Coupon usage limit reached" };
+            return { valid: false, errorCode: ErrorCode.COUPON_USAGE_LIMIT, error: "Coupon usage limit reached" };
         }
 
-        // 5. Find the subscription to check currency and amount
-        const subscription = await AppDataSource.getRepository(Subscription).findOneBy({ id: subscriptionId });
-        if (!subscription) return { valid: false, error: "Subscription not found" };
+        // 4. Validate subscription constraints (if subscription is known at this point)
+        if (subscriptionId) {
+            const subscription = await AppDataSource.getRepository(Subscription).findOneBy({ id: subscriptionId });
+            if (!subscription) return { valid: false, errorCode: ErrorCode.SUBSCRIPTION_NOT_FOUND, error: "Subscription not found" };
 
-        // 6. For fixed type: check currency match
-        if (coupon.type === "fixed" && coupon.currency !== subscription.currency) {
-            return { valid: false, error: "Coupon currency does not match" };
-        }
+            // For fixed coupons, currency MUST match exactly
+            if (coupon.type === "fixed" && coupon.currency !== subscription.currency) {
+                return { valid: false, errorCode: ErrorCode.COUPON_CURRENCY_MISMATCH, error: "Coupon currency does not match" };
+            }
 
-        // 7. Check minAmount
-        if (coupon.minAmount > 0 && subscription.amount < coupon.minAmount) {
-            return { valid: false, error: "Order does not meet minimum amount" };
-        }
+            // For minAmount constraint
+            if (coupon.minAmount > 0 && subscription.amount < coupon.minAmount) {
+                return { valid: false, errorCode: ErrorCode.COUPON_MIN_AMOUNT, error: "Order does not meet minimum amount" };
+            }
 
-        // 8. Check subscriptionIds restriction
-        if (coupon.subscriptionIds && coupon.subscriptionIds.length > 0) {
-            if (!coupon.subscriptionIds.includes(subscriptionId)) {
-                return { valid: false, error: "Coupon not valid for this plan" };
+            // Check if coupon is restricted to specific plans
+            if (coupon.subscriptionIds && coupon.subscriptionIds.length > 0) {
+                if (!coupon.subscriptionIds.includes(subscriptionId)) {
+                    return { valid: false, errorCode: ErrorCode.COUPON_INVALID_PLAN, error: "Coupon not valid for this plan" };
+                }
             }
         }
 
-        // 9. Check per-user usage
-        const usageCount = await AppDataSource.getRepository(Invoice)
-            .createQueryBuilder("invoice")
-            .innerJoin("invoice.subscriber", "subscriber")
-            .where("invoice.couponId = :couponId", { couponId: coupon.id })
-            .andWhere("subscriber.uid = :uid", { uid })
-            .andWhere("invoice.status IN (:...statuses)", { statuses: ["paid"] })
-            .getCount();
+        // 5. Validate per-user limits (if user is known, i.e., during actual payment/application)
+        if (uid && coupon.maxRedemptionsPerUser !== null) {
+            const userInvoicesWithCoupon = await AppDataSource.getRepository(Invoice)
+                .createQueryBuilder("invoice")
+                .innerJoin("invoice.subscriber", "subscriber")
+                .where("invoice.couponId = :couponId", { couponId: coupon.id })
+                .andWhere("subscriber.uid = :uid", { uid })
+                .andWhere("invoice.status IN (:...statuses)", { statuses: ["paid"] })
+                .getCount();
 
-        if (usageCount >= coupon.maxRedemptionsPerUser) {
-            return { valid: false, error: "You have already used this coupon" };
+            if (userInvoicesWithCoupon >= coupon.maxRedemptionsPerUser) {
+                return { valid: false, errorCode: ErrorCode.COUPON_ALREADY_USED, error: "You have already used this coupon" };
+            }
         }
 
         return { valid: true, coupon };

@@ -14,6 +14,8 @@ import { AppDataSource } from "../../core/datasource";
 import { Subscriber } from "../../entities/Subscriber";
 import { Squad } from "../../entities/Squad";
 import { BillingService } from "../../services/BillingService";
+import { AppError } from "../../core/errors/AppError";
+import { ErrorCode } from "../../core/errors/ErrorCode";
 import { UpdateSubscriberBody } from "../../models/SubscriberModels";
 import { SubscriberListQuery } from "../../models/QueryModels";
 
@@ -57,7 +59,7 @@ export class SubscribersController {
     @Returns(404)
     async get(@PathParams("id") id: string) {
         const sub = await this.repo().findOne({ where: { id }, relations: ["subscription", "invoices"] });
-        if (!sub) throw new NotFound("Subscriber not found");
+        if (!sub) throw new AppError(404, ErrorCode.SUBSCRIBER_NOT_FOUND, "Subscriber not found");
 
         // Load squad owned by this subscriber (if any)
         const squad = await AppDataSource.getRepository(Squad).findOne({
@@ -82,7 +84,7 @@ export class SubscribersController {
     @Returns(404)
     async update(@PathParams("id") id: string, @BodyParams() data: UpdateSubscriberBody) {
         const sub = await this.repo().findOneBy({ id });
-        if (!sub) throw new NotFound("Subscriber not found");
+        if (!sub) throw new AppError(404, ErrorCode.SUBSCRIBER_NOT_FOUND, "Subscriber not found");
 
         // Apply only validated & whitelisted fields.
         if (data.status !== undefined) sub.status = data.status;
@@ -100,9 +102,9 @@ export class SubscribersController {
     @Returns(404)
     async cancel(@PathParams("id") id: string) {
         const sub = await this.repo().findOne({ where: { id }, relations: ["subscription"] });
-        if (!sub) throw new NotFound("Subscriber not found");
+        if (!sub) throw new AppError(404, ErrorCode.SUBSCRIBER_NOT_FOUND, "Subscriber not found");
         if (sub.subscription?.interval === "one_time") {
-            throw new BadRequest("One-time subscriptions cannot be cancelled");
+            throw new AppError(400, ErrorCode.SUBSCRIPTION_NOT_CANCELLABLE, "One-time subscriptions cannot be cancelled");
         }
         sub.status = "cancelled";
         return this.repo().save(sub);
@@ -117,9 +119,9 @@ export class SubscribersController {
     @Returns(404)
     async refund(@PathParams("id") id: string) {
         const sub = await this.repo().findOneBy({ id });
-        if (!sub) throw new NotFound("Subscriber not found");
+        if (!sub) throw new AppError(404, ErrorCode.SUBSCRIBER_NOT_FOUND, "Subscriber not found");
         if (sub.status !== "active") {
-            throw new BadRequest("Only active subscribers can be refunded");
+            throw new AppError(400, ErrorCode.BAD_REQUEST, "Only active subscribers can be refunded");
         }
         return this.billing.refundSubscriber(id);
     }

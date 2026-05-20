@@ -13,6 +13,7 @@
 
 import { Catch, ExceptionFilterMethods, PlatformContext } from "@tsed/common";
 import { Exception } from "@tsed/exceptions";
+import { AppError } from "../errors/AppError";
 
 @Catch(Exception)
 export class HttpExceptionFilter implements ExceptionFilterMethods<Exception> {
@@ -21,17 +22,32 @@ export class HttpExceptionFilter implements ExceptionFilterMethods<Exception> {
 
         const status = exception.status || 500;
 
+        let errorCode = "INTERNAL_SERVER_ERROR";
+        let details = undefined;
+
+        if (exception instanceof AppError) {
+            errorCode = exception.code;
+            details = exception.details;
+        } else if (exception.body?.errors) {
+            errorCode = "VALIDATION_FAILED";
+        } else if (exception.name) {
+            errorCode = exception.name.toUpperCase().replace(/\s/g, "_");
+        }
+
         // Log 4xx as warnings, 5xx as errors.
         if (status >= 500) {
-            logger.error({ error_name: exception.name, message: exception.message, status });
+            logger.error({ error_name: exception.name, errorCode, message: exception.message, status });
         } else {
-            logger.warn({ error_name: exception.name, message: exception.message, status });
+            logger.warn({ error_name: exception.name, errorCode, message: exception.message, status });
         }
 
         response.status(status).body({
+            valid: false,
             status,
+            errorCode,
             message: exception.message,
-            ...(exception.body?.errors && { errors: exception.body.errors }),
+            ...(details && { details }),
+            ...(exception.body?.errors && { validation: exception.body.errors }),
         });
     }
 }

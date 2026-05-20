@@ -18,6 +18,8 @@ import { Tags, Summary, Description, Returns } from "@tsed/schema";
 import { Inject } from "@tsed/di";
 import { Logger } from "@tsed/logger";
 import { AppDataSource } from "../../core/datasource";
+import { AppError } from "../../core/errors/AppError";
+import { ErrorCode } from "../../core/errors/ErrorCode";
 import { Subscriber } from "../../entities/Subscriber";
 import { Subscription } from "../../entities/Subscription";
 import { Invoice } from "../../entities/Invoice";
@@ -52,7 +54,7 @@ export class PortalController {
     private verifyToken(token: string): string {
         const payload = verifyPortalToken(token);
         if (!payload) {
-            throw new BadRequest("Invalid or expired portal link");
+            throw new AppError(400, ErrorCode.INVALID_PORTAL_TOKEN, "Invalid or expired portal link");
         }
         return payload.uid;
     }
@@ -68,10 +70,10 @@ export class PortalController {
             relations: ["subscription"],
         });
         if (!subscriber) {
-            throw new NotFound("Subscriber not found");
+            throw new AppError(404, ErrorCode.SUBSCRIBER_NOT_FOUND, "Subscriber not found");
         }
         if (subscriber.uid !== uid) {
-            throw new Forbidden("Access denied");
+            throw new AppError(403, ErrorCode.FORBIDDEN, "Access denied");
         }
         return subscriber;
     }
@@ -270,11 +272,11 @@ export class PortalController {
         const subscriber = await this.loadSubscriber(subscriberId, uid);
 
         if (subscriber.subscription.interval === "one_time") {
-            throw new BadRequest("One-time subscriptions cannot be cancelled");
+            throw new AppError(400, ErrorCode.SUBSCRIPTION_NOT_CANCELLABLE, "One-time subscriptions cannot be cancelled");
         }
 
         if (subscriber.status === "cancelled") {
-            throw new BadRequest("Subscription is already cancelled");
+            throw new AppError(400, ErrorCode.SUBSCRIPTION_CANCELED, "Subscription is already cancelled");
         }
 
         // Cancel the subscriber.
@@ -329,12 +331,12 @@ export class PortalController {
             isActive: true,
         });
         if (!newPlan) {
-            throw new NotFound("Target subscription plan not found or inactive");
+            throw new AppError(404, ErrorCode.SUBSCRIPTION_NOT_FOUND, "Target subscription plan not found or inactive");
         }
 
         // Cannot change to the same plan.
         if (subscriber.subscriptionId === newSubscriptionId) {
-            throw new BadRequest("Already on this plan");
+            throw new AppError(400, ErrorCode.SUBSCRIPTION_ALREADY_ACTIVE, "Already on this plan");
         }
 
         // Cancel the current subscriber.
@@ -379,11 +381,11 @@ export class PortalController {
         const subscriber = await this.loadSubscriber(subscriberId, uid);
 
         if (subscriber.status === "active") {
-            throw new BadRequest("Subscription is already active");
+            throw new AppError(400, ErrorCode.SUBSCRIPTION_ALREADY_ACTIVE, "Subscription is already active");
         }
 
         if (subscriber.subscription.interval === "one_time") {
-            throw new BadRequest("One-time subscriptions cannot be renewed");
+            throw new AppError(400, ErrorCode.BAD_REQUEST, "One-time subscriptions cannot be renewed");
         }
 
         // Create a checkout link for the same plan.
@@ -412,7 +414,7 @@ export class PortalController {
         @QueryParams("subscriberId") subscriberId: string,
     ) {
         if (!token || !subscriberId) {
-            throw new BadRequest("Missing token or subscriberId");
+            throw new AppError(400, ErrorCode.BAD_REQUEST, "Missing token or subscriberId");
         }
 
         const uid = this.verifyToken(token);

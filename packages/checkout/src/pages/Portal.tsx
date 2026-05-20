@@ -21,6 +21,7 @@ import {
     Lock,
     X,
 } from "lucide-solid";
+import { useI18n } from "../locales/i18n";
 
 const API = "/api/portal";
 
@@ -77,25 +78,6 @@ interface PortalData {
 
 // ─── Helpers ────────────────────────────────────────────────────────
 
-function formatPrice(amount: number, currency: string) {
-    return new Intl.NumberFormat("en-US", { style: "currency", currency }).format(amount / 100);
-}
-
-function intervalLabel(interval: string, count: number) {
-    if (interval === "one_time") return "one-time";
-    const unit = count > 1 ? `${count} ${interval}s` : interval;
-    return `per ${unit}`;
-}
-
-function formatDate(dateStr: string | null) {
-    if (!dateStr) return "—";
-    return new Date(dateStr).toLocaleDateString("en-US", {
-        month: "short",
-        day: "numeric",
-        year: "numeric",
-    });
-}
-
 function statusBadgeClass(status: string) {
     switch (status) {
         case "active": return "portal-badge portal-badge-active";
@@ -112,6 +94,7 @@ function statusBadgeClass(status: string) {
 // ─── Component ──────────────────────────────────────────────────────
 
 export function PortalPage() {
+    const { t, formatPrice, intervalLabel, formatDate } = useI18n();
     const params = useParams<{ token: string }>();
 
     // State
@@ -135,7 +118,10 @@ export function PortalPage() {
             const res = await fetch(`${API}/resolve/${params.token}`);
             if (!res.ok) {
                 const err = await res.json().catch(() => null);
-                throw new Error(err?.message || "This portal link has expired or is invalid");
+                const code = err?.errorCode || err?.message;
+                let tError = code ? t(`apiErrors.${code}` as any) : t("common.invalidLink");
+                if (!tError || tError.includes("apiErrors.")) tError = code || t("common.invalidLink");
+                throw new Error(tError);
             }
             setData(await res.json());
         } catch (err: any) {
@@ -158,10 +144,16 @@ export function PortalPage() {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ token: params.token, subscriberId: d.subscriber.id }),
             });
-            if (!res.ok) { const err = await res.json(); throw new Error(err.message); }
+            if (!res.ok) { 
+                const err = await res.json().catch(() => ({})); 
+                const code = err.errorCode || err.message || "Unknown error";
+                let tError = t(`apiErrors.${code}` as any);
+                if (!tError || tError.includes("apiErrors.")) tError = code;
+                throw new Error(tError);
+            }
             setData({ ...d, subscriber: { ...d.subscriber, status: "cancelled" } });
             setShowCancelModal(false);
-            setActionSuccess("Your subscription has been cancelled.");
+            setActionSuccess(t("portal.cancelledNoActions"));
             setTimeout(() => setActionSuccess(""), 5000);
         } catch (err: any) { setActionError(err.message); }
         finally { setActionLoading(false); }
@@ -182,7 +174,13 @@ export function PortalPage() {
                     newSubscriptionId: selectedPlan(),
                 }),
             });
-            if (!res.ok) { const err = await res.json(); throw new Error(err.message); }
+            if (!res.ok) { 
+                const err = await res.json().catch(() => ({})); 
+                const code = err.errorCode || err.message || "Unknown error";
+                let tError = t(`apiErrors.${code}` as any);
+                if (!tError || tError.includes("apiErrors.")) tError = code;
+                throw new Error(tError);
+            }
             const { checkoutUrl } = await res.json();
             window.location.href = checkoutUrl;
         } catch (err: any) {
@@ -202,7 +200,13 @@ export function PortalPage() {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ token: params.token, subscriberId: d.subscriber.id }),
             });
-            if (!res.ok) { const err = await res.json(); throw new Error(err.message); }
+            if (!res.ok) { 
+                const err = await res.json().catch(() => ({})); 
+                const code = err.errorCode || err.message || "Unknown error";
+                let tError = t(`apiErrors.${code}` as any);
+                if (!tError || tError.includes("apiErrors.")) tError = code;
+                throw new Error(tError);
+            }
             const { checkoutUrl } = await res.json();
             window.location.href = checkoutUrl;
         } catch (err: any) {
@@ -247,7 +251,7 @@ export function PortalPage() {
                     <div class="confirm-card">
                         <div class="token-error">
                             <AlertTriangle size={32} />
-                            <div class="token-error-title">Link expired</div>
+                            <div class="token-error-title">{t("common.linkExpired")}</div>
                             <div class="token-error-message">{tokenError()}</div>
                         </div>
                     </div>
@@ -273,16 +277,16 @@ export function PortalPage() {
                                     </div>
                                 </Show>
                                 <span class="checkout-brand-name">
-                                    {data()!.checkoutConfig?.brandName || "Billing Portal"}
+                                    {data()!.checkoutConfig?.brandName || t("common.billingPortal")}
                                 </span>
                             </div>
 
                             <Show when={data()!.subscriber} fallback={
                                 <div class="portal-empty-left">
                                     <CreditCard size={36} />
-                                    <div class="portal-empty-title">No active subscription</div>
+                                    <div class="portal-empty-title">{t("portal.noActiveSub")}</div>
                                     <div class="portal-empty-desc">
-                                        There is no subscription associated with this account.
+                                        {t("portal.noActiveSubDesc")}
                                     </div>
                                 </div>
                             }>
@@ -300,12 +304,12 @@ export function PortalPage() {
 
                                             {/* Status & period */}
                                             <div class="portal-status-bar">
-                                                <span class={statusBadgeClass(sub.status)}>{sub.status}</span>
+                                                <span class={statusBadgeClass(sub.status)}>{t("portal.status_" + sub.status)}</span>
                                                 <Show when={data()!.role === "owner"}>
-                                                    <span class="portal-badge portal-badge-info">Squad owner</span>
+                                                    <span class="portal-badge portal-badge-info">{t("portal.squadOwner")}</span>
                                                 </Show>
                                                 <Show when={data()!.role === "member"}>
-                                                    <span class="portal-badge portal-badge-info">Squad member</span>
+                                                    <span class="portal-badge portal-badge-info">{t("portal.squadMember")}</span>
                                                 </Show>
                                                 <Show when={sub.subscription.interval !== "one_time" && sub.currentPeriodEnd}>
                                                     <span class="portal-period-text">
@@ -313,8 +317,8 @@ export function PortalPage() {
                                                         {sub.status === "active"
                                                             ? `${formatDate(sub.currentPeriodStart)} – ${formatDate(sub.currentPeriodEnd)}`
                                                             : sub.status === "cancelled"
-                                                            ? `until ${formatDate(sub.currentPeriodEnd)}`
-                                                            : `expired ${formatDate(sub.currentPeriodEnd)}`}
+                                                            ? `${t("portal.until")} ${formatDate(sub.currentPeriodEnd)}`
+                                                            : `${t("portal.expiredOn")} ${formatDate(sub.currentPeriodEnd)}`}
                                                     </span>
                                                 </Show>
                                             </div>
@@ -322,24 +326,24 @@ export function PortalPage() {
                                             {/* Invoice History */}
                                             <Show when={data()!.invoices.length > 0}>
                                                 <div class="order-summary">
-                                                    <div class="portal-invoices-title">Payment History</div>
+                                                    <div class="portal-invoices-title">{t("portal.paymentHistory")}</div>
                                                     <For each={data()!.invoices.slice(0, 10)}>
                                                         {(inv) => (
                                                             <div class="order-row">
-                                                                <div>
-                                                                    <div class="order-item-name">
-                                                                        {formatDate(inv.paidAt || inv.createdAt)}
-                                                                    </div>
-                                                                </div>
-                                                                <div style={{ display: "flex", "align-items": "center", gap: "10px" }}>
-                                                                    <span class={statusBadgeClass(inv.status)}>
-                                                                        {inv.status}
-                                                                    </span>
-                                                                    <div class="order-item-price">
-                                                                        {formatPrice(inv.amount, inv.currency)}
-                                                                    </div>
-                                                                </div>
-                                                            </div>
+                                                                 <div>
+                                                                     <div class="order-item-name">
+                                                                         {formatDate(inv.paidAt || inv.createdAt)}
+                                                                     </div>
+                                                                 </div>
+                                                                 <div style={{ display: "flex", "align-items": "center", gap: "10px" }}>
+                                                                     <span class={statusBadgeClass(inv.status)}>
+                                                                         {t("portal.status_" + inv.status)}
+                                                                     </span>
+                                                                     <div class="order-item-price">
+                                                                         {formatPrice(inv.amount, inv.currency)}
+                                                                     </div>
+                                                                 </div>
+                                                             </div>
                                                         )}
                                                     </For>
                                                 </div>
@@ -353,7 +357,7 @@ export function PortalPage() {
                             <Show when={!data()!.checkoutConfig?.hidePoweredBy}>
                                 <div class="powered-by">
                                     <Lock size={12} />
-                                    Powered by{" "}
+                                    {t("common.poweredBy")}{" "}
                                     <a href="https://github.com/dortanes/anybill" target="_blank" rel="noopener noreferrer">anybill</a>
                                 </div>
                             </Show>
@@ -363,7 +367,7 @@ export function PortalPage() {
                     {/* ─── Right Column: Actions ─── */}
                     <div class="checkout-right">
                         <div class="checkout-right-inner">
-                            <div class="payment-section-title">Manage Subscription</div>
+                            <div class="payment-section-title">{t("portal.manageSub")}</div>
 
                             {/* Success toast */}
                             <Show when={actionSuccess()}>
@@ -391,9 +395,9 @@ export function PortalPage() {
                                                         <Lock size={20} />
                                                     </div>
                                                     <div class="portal-member-notice-content">
-                                                        <div class="portal-member-notice-title">You're a squad member</div>
+                                                        <div class="portal-member-notice-title">{t("portal.squadMemberNoticeTitle")}</div>
                                                         <div class="portal-member-notice-desc">
-                                                            Your access is provided by the subscription owner. Contact them to manage the plan.
+                                                            {t("portal.squadMemberNoticeDesc")}
                                                         </div>
                                                     </div>
                                                 </div>
@@ -408,8 +412,8 @@ export function PortalPage() {
                                                         <ArrowRightLeft size={20} />
                                                     </div>
                                                     <div class="portal-action-content">
-                                                        <div class="portal-action-title">Change Plan</div>
-                                                        <div class="portal-action-desc">Switch to a different subscription plan</div>
+                                                        <div class="portal-action-title">{t("portal.changePlan")}</div>
+                                                        <div class="portal-action-desc">{t("portal.changePlanDesc")}</div>
                                                     </div>
                                                 </button>
                                             </Show>
@@ -423,9 +427,9 @@ export function PortalPage() {
                                                         <RefreshCw size={20} />
                                                     </div>
                                                     <div class="portal-action-content">
-                                                        <div class="portal-action-title">Renew Subscription</div>
+                                                        <div class="portal-action-title">{t("portal.renewSub")}</div>
                                                         <div class="portal-action-desc">
-                                                            Reactivate your {sub.subscription.name} plan
+                                                            {t("portal.renewSubDesc", { name: sub.subscription.name })}
                                                         </div>
                                                     </div>
                                                 </button>
@@ -440,8 +444,8 @@ export function PortalPage() {
                                                         <XCircle size={20} />
                                                     </div>
                                                     <div class="portal-action-content">
-                                                        <div class="portal-action-title">Cancel Subscription</div>
-                                                        <div class="portal-action-desc">Your access continues until the period ends</div>
+                                                        <div class="portal-action-title">{t("portal.cancelSub")}</div>
+                                                        <div class="portal-action-desc">{t("portal.cancelSubDesc")}</div>
                                                     </div>
                                                 </button>
                                             </Show>
@@ -449,14 +453,14 @@ export function PortalPage() {
                                             {/* One-time: no actions */}
                                             <Show when={isOneTime}>
                                                 <div class="portal-no-actions">
-                                                    This is a one-time purchase. No actions available.
+                                                    {t("portal.oneTimePurchaseNoActions")}
                                                 </div>
                                             </Show>
 
                                             {/* Cancelled + no change plans */}
                                             <Show when={sub.status === "cancelled" && !canRenew() && changePlans().length === 0}>
                                                 <div class="portal-no-actions">
-                                                    Your subscription has been cancelled.
+                                                    {t("portal.cancelledNoActions")}
                                                 </div>
                                             </Show>
                                         </div>
@@ -466,7 +470,7 @@ export function PortalPage() {
 
                             <Show when={!data()!.subscriber}>
                                 <div class="portal-no-actions">
-                                    No subscription to manage.
+                                    {t("portal.noSubToManage")}
                                 </div>
                             </Show>
                         </div>
@@ -484,17 +488,17 @@ export function PortalPage() {
                         <div class="portal-modal-icon portal-modal-icon-danger">
                             <XCircle size={28} />
                         </div>
-                        <div class="portal-modal-title">Cancel Subscription</div>
+                        <div class="portal-modal-title">{t("portal.cancelTitle")}</div>
                         <div class="portal-modal-desc">
-                            Are you sure? You'll lose access at the end of your current billing period.
+                            {t("portal.cancelConfirmDesc")}
                         </div>
                         <Show when={actionError()}><div class="error-msg">{actionError()}</div></Show>
                         <div class="portal-modal-actions">
                             <button class="portal-btn portal-btn-ghost" onClick={() => setShowCancelModal(false)} disabled={actionLoading()}>
-                                Keep Subscription
+                                {t("portal.keepSubBtn")}
                             </button>
                             <button class="portal-btn portal-btn-danger" onClick={cancelSubscription} disabled={actionLoading()}>
-                                {actionLoading() ? "Cancelling..." : "Yes, Cancel"}
+                                {actionLoading() ? t("portal.cancelling") : t("portal.confirmCancelBtn")}
                             </button>
                         </div>
                     </div>
@@ -508,9 +512,9 @@ export function PortalPage() {
                         <button class="portal-modal-close" onClick={() => setShowChangeModal(false)}>
                             <X size={18} />
                         </button>
-                        <div class="portal-modal-title">Change Plan</div>
+                        <div class="portal-modal-title">{t("portal.changeTitle")}</div>
                         <div class="portal-modal-desc">
-                            Select a new plan. You'll be redirected to complete payment.
+                            {t("portal.changePlanModalDesc")}
                         </div>
 
                         <div class="portal-plan-list">
@@ -537,10 +541,10 @@ export function PortalPage() {
                         <Show when={actionError()}><div class="error-msg">{actionError()}</div></Show>
                         <div class="portal-modal-actions">
                             <button class="portal-btn portal-btn-ghost" onClick={() => setShowChangeModal(false)} disabled={actionLoading()}>
-                                Cancel
+                                {t("common.cancel")}
                             </button>
                             <button class="portal-btn portal-btn-primary" onClick={changePlan} disabled={actionLoading() || !selectedPlan()}>
-                                {actionLoading() ? "Processing..." : "Continue to Payment"}
+                                {actionLoading() ? t("common.processing") : t("portal.continueToPaymentBtn")}
                             </button>
                         </div>
                     </div>
@@ -557,19 +561,20 @@ export function PortalPage() {
                         <div class="portal-modal-icon portal-modal-icon-accent">
                             <RefreshCw size={28} />
                         </div>
-                        <div class="portal-modal-title">Renew Subscription</div>
+                        <div class="portal-modal-title">{t("portal.renewTitle")}</div>
                         <div class="portal-modal-desc">
-                            Renew your <strong>{data()!.subscriber!.subscription.name}</strong> plan for{" "}
-                            {formatPrice(data()!.subscriber!.subscription.amount, data()!.subscriber!.subscription.currency)}.
-                            You'll be redirected to complete payment.
+                            {t("portal.renewConfirmDesc", {
+                                name: data()!.subscriber!.subscription.name,
+                                amount: formatPrice(data()!.subscriber!.subscription.amount, data()!.subscriber!.subscription.currency)
+                            })}
                         </div>
                         <Show when={actionError()}><div class="error-msg">{actionError()}</div></Show>
                         <div class="portal-modal-actions">
                             <button class="portal-btn portal-btn-ghost" onClick={() => setShowRenewModal(false)} disabled={actionLoading()}>
-                                Cancel
+                                {t("common.cancel")}
                             </button>
                             <button class="portal-btn portal-btn-primary" onClick={renewSubscription} disabled={actionLoading()}>
-                                {actionLoading() ? "Processing..." : "Continue to Payment"}
+                                {actionLoading() ? t("common.processing") : t("portal.continueToPaymentBtn")}
                             </button>
                         </div>
                     </div>

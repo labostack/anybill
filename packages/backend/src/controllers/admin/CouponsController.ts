@@ -14,6 +14,8 @@ import { Tags, Summary, Description, Returns } from "@tsed/schema";
 import { AdminGuard } from "../../core/AdminGuard";
 import { AppDataSource } from "../../core/datasource";
 import { Coupon } from "../../entities/Coupon";
+import { AppError } from "../../core/errors/AppError";
+import { ErrorCode } from "../../core/errors/ErrorCode";
 import { CreateCouponBody, UpdateCouponBody } from "../../models/CouponModels";
 
 @Controller("/coupons")
@@ -38,7 +40,7 @@ export class CouponsController {
     @Returns(404)
     async get(@PathParams("id") id: string) {
         const coupon = await this.repo().findOneBy({ id });
-        if (!coupon) throw new NotFound("Coupon not found");
+        if (!coupon) throw new AppError(404, ErrorCode.COUPON_NOT_FOUND, "Coupon not found");
         return coupon;
     }
 
@@ -52,7 +54,7 @@ export class CouponsController {
     async create(@BodyParams() body: CreateCouponBody) {
         // Validate: fixed type requires currency
         if (body.type === "fixed" && !body.currency) {
-            throw new BadRequest("Currency is required for fixed-amount coupons");
+            throw new AppError(400, ErrorCode.BAD_REQUEST, "Currency is required for fixed-amount coupons");
         }
 
         // Normalize code to uppercase
@@ -60,7 +62,7 @@ export class CouponsController {
 
         // Check uniqueness
         const existing = await this.repo().findOneBy({ code });
-        if (existing) throw new Conflict("A coupon with this code already exists");
+        if (existing) throw new AppError(409, ErrorCode.CONFLICT, "A coupon with this code already exists");
 
         const coupon = this.repo().create({
             code,
@@ -86,7 +88,7 @@ export class CouponsController {
     @Returns(404)
     async update(@PathParams("id") id: string, @BodyParams() body: UpdateCouponBody) {
         const coupon = await this.repo().findOneBy({ id });
-        if (!coupon) throw new NotFound("Coupon not found");
+        if (!coupon) throw new AppError(404, ErrorCode.COUPON_NOT_FOUND, "Coupon not found");
 
         if (body.isActive !== undefined) coupon.isActive = body.isActive;
         if (body.maxRedemptions !== undefined) coupon.maxRedemptions = body.maxRedemptions;
@@ -108,9 +110,9 @@ export class CouponsController {
     @Returns(409)
     async delete(@PathParams("id") id: string) {
         const coupon = await this.repo().findOneBy({ id });
-        if (!coupon) throw new NotFound("Coupon not found");
+        if (!coupon) throw new AppError(404, ErrorCode.COUPON_NOT_FOUND, "Coupon not found");
         if (coupon.timesRedeemed > 0) {
-            throw new Conflict("Cannot delete a coupon that has been used");
+            throw new AppError(409, ErrorCode.CONFLICT, "Cannot delete a coupon that has been used");
         }
         await this.repo().remove(coupon);
         return { deleted: true };

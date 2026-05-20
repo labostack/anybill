@@ -12,6 +12,8 @@ import { BadRequest, Conflict } from "@tsed/exceptions";
 import { Tags, Summary, Description, Returns } from "@tsed/schema";
 import type { Response } from "express";
 import { AppDataSource } from "../../core/datasource";
+import { AppError } from "../../core/errors/AppError";
+import { ErrorCode } from "../../core/errors/ErrorCode";
 import { Account } from "../../entities/Account";
 import { ApiKey } from "../../entities/ApiKey";
 import { hashPassword, comparePassword, signJwt, verifyJwt, generateApiKey, hashApiKey } from "../../core/auth";
@@ -52,7 +54,7 @@ export class AuthController {
         const accountRepo = AppDataSource.getRepository(Account);
         const existing = await accountRepo.count();
         if (existing > 0) {
-            throw new Conflict("Account already exists. Use /login instead.");
+            throw new AppError(409, ErrorCode.ACCOUNT_EXISTS, "Account already exists. Use /login instead.");
         }
 
         // Create the admin account.
@@ -92,7 +94,7 @@ export class AuthController {
         const repo = AppDataSource.getRepository(Account);
         const account = await repo.findOneBy({ email });
         if (!account || !comparePassword(password, account.passwordHash)) {
-            throw new BadRequest("Invalid credentials");
+            throw new AppError(400, ErrorCode.INVALID_CREDENTIALS, "Invalid credentials");
         }
 
         setAuthCookie(res, signJwt({ sub: account.id }));

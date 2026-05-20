@@ -1279,3 +1279,94 @@ body {
         flex-direction: column;
     }
 }
+
+/* ─── Language Switcher Widget ─────────────────────── */
+
+.lang-switcher {
+    position: fixed;
+    top: 24px;
+    right: 24px;
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+}
+
+.lang-select {
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    background: rgba(28, 30, 40, 0.6);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 6px 30px 6px 14px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+    cursor: pointer;
+    font-family: var(--font);
+    outline: none;
+    transition: all 0.2s var(--ease);
+}
+
+.lang-select:hover {
+    color: var(--text);
+    border-color: var(--border-hover);
+}
+
+.lang-select:focus {
+    border-color: var(--accent);
+}
+
+.lang-switcher-arrow {
+    position: absolute;
+    right: 12px;
+    pointer-events: none;
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Base-select override for Chrome 135+ */
+@supports (appearance: base-select) {
+    .lang-select,
+    .lang-select::picker(select) {
+        appearance: base-select;
+    }
+
+    .lang-select {
+        padding: 6px 14px 6px 16px;
+    }
+
+    .lang-switcher-arrow {
+        display: none;
+    }
+
+    .lang-select::picker(select) {
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 6px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    }
+
+    .lang-select option {
+        padding: 8px 12px;
+        border-radius: 6px;
+        font-size: 13px;
+        font-weight: 500;
+        color: var(--text);
+        cursor: pointer;
+    }
+
+    .lang-select option:hover {
+        background: var(--bg-elevated);
+    }
+
+    .lang-select::picker-icon {
+        color: var(--text-muted);
+    }
+}

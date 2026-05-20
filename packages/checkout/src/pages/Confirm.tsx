@@ -2,10 +2,12 @@
 import { createSignal, onMount, onCleanup, Show } from "solid-js";
 import { useParams } from "@solidjs/router";
 import { CheckCircle, XCircle, AlertTriangle } from "lucide-solid";
+import { useI18n } from "../locales/i18n";
 
 const API = "/api/checkout";
 
 export function Confirm() {
+    const { t } = useI18n();
     const params = useParams();
     const [status, setStatus] = createSignal<string>("checking");
     const [redirectUrl, setRedirectUrl] = createSignal<string | null>(null);
@@ -60,19 +62,19 @@ export function Confirm() {
             <div class="confirm-card">
                 <Show when={status() === "checking" || status() === "pending"}>
                     <div class="spinner" />
-                    <div class="confirm-title">Verifying payment</div>
-                    <div class="confirm-desc">Please wait while we confirm your payment...</div>
+                    <div class="confirm-title">{t("confirm.verifying")}</div>
+                    <div class="confirm-desc">{t("confirm.verifyingDesc")}</div>
                 </Show>
 
                 <Show when={status() === "paid"}>
                     <div class="confirm-icon success">
                         <CheckCircle size={32} />
                     </div>
-                    <div class="confirm-title">Payment confirmed!</div>
+                    <div class="confirm-title">{t("confirm.confirmed")}</div>
                     <Show when={redirectUrl()} fallback={
-                        <div class="confirm-desc">Your payment has been processed successfully.</div>
+                        <div class="confirm-desc">{t("confirm.confirmedDesc")}</div>
                     }>
-                        <div class="confirm-desc">Redirecting you back in a moment...</div>
+                        <div class="confirm-desc">{t("confirm.redirecting")}</div>
                     </Show>
                 </Show>
 
@@ -80,18 +82,19 @@ export function Confirm() {
                     <div class="confirm-icon error">
                         <XCircle size={32} />
                     </div>
-                    <div class="confirm-title">Payment failed</div>
-                    <div class="confirm-desc">Something went wrong with your payment. Please try again.</div>
+                    <div class="confirm-title">{t("confirm.failed")}</div>
+                    <div class="confirm-desc">{t("confirm.failedDesc")}</div>
                 </Show>
 
                 <Show when={status() === "error"}>
                     <div class="confirm-icon warning">
                         <AlertTriangle size={32} />
                     </div>
-                    <div class="confirm-title">Unable to verify</div>
-                    <div class="confirm-desc">We couldn't check your payment status. Please contact support.</div>
+                    <div class="confirm-title">{t("confirm.unableVerify")}</div>
+                    <div class="confirm-desc">{t("confirm.unableVerifyDesc")}</div>
                 </Show>
             </div>
         </div>
     );
 }
+

@@ -14,6 +14,8 @@ import { AdminGuard } from "../../core/AdminGuard";
 import { AppDataSource } from "../../core/datasource";
 import { WebhookEndpoint } from "../../entities/WebhookEndpoint";
 import { WebhookDelivery } from "../../entities/WebhookDelivery";
+import { AppError } from "../../core/errors/AppError";
+import { ErrorCode } from "../../core/errors/ErrorCode";
 import { OutgoingWebhookService } from "../../services/OutgoingWebhookService";
 import { randomBytes } from "crypto";
 import { CreateWebhookBody, UpdateWebhookBody } from "../../models/WebhookModels";
@@ -66,7 +68,7 @@ export class WebhooksController {
     @Returns(404)
     async update(@PathParams("id") id: string, @BodyParams() data: UpdateWebhookBody) {
         const ep = await this.epRepo().findOneBy({ id });
-        if (!ep) throw new NotFound("Endpoint not found");
+        if (!ep) throw new AppError(404, ErrorCode.WEBHOOK_ENDPOINT_NOT_FOUND, "Endpoint not found");
         if (data.url !== undefined) ep.url = data.url;
         if (data.description !== undefined) ep.description = data.description;
         if (data.events !== undefined) ep.events = data.events;
@@ -81,7 +83,7 @@ export class WebhooksController {
     @Returns(404)
     async delete(@PathParams("id") id: string) {
         const ep = await this.epRepo().findOneBy({ id });
-        if (!ep) throw new NotFound("Endpoint not found");
+        if (!ep) throw new AppError(404, ErrorCode.WEBHOOK_ENDPOINT_NOT_FOUND, "Endpoint not found");
         await this.dlvRepo().createQueryBuilder().delete().where("endpointId = :id", { id }).execute();
         await this.epRepo().remove(ep);
         return { deleted: true };
@@ -94,7 +96,7 @@ export class WebhooksController {
     @Returns(404)
     async rotateSecret(@PathParams("id") id: string) {
         const ep = await this.epRepo().findOneBy({ id });
-        if (!ep) throw new NotFound("Endpoint not found");
+        if (!ep) throw new AppError(404, ErrorCode.WEBHOOK_ENDPOINT_NOT_FOUND, "Endpoint not found");
         const secret = generateSecret();
         ep.secret = secret;
         await this.epRepo().save(ep);
@@ -107,7 +109,7 @@ export class WebhooksController {
     @Returns(404)
     async test(@PathParams("id") id: string) {
         const ep = await this.epRepo().findOneBy({ id });
-        if (!ep) throw new NotFound("Endpoint not found");
+        if (!ep) throw new AppError(404, ErrorCode.WEBHOOK_ENDPOINT_NOT_FOUND, "Endpoint not found");
         await this.webhookService.dispatch("payment.confirmed", {
             test: true, message: "This is a test event from AnyBill", endpointId: id,
         });

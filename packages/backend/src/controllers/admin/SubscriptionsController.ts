@@ -14,6 +14,8 @@ import { In } from "typeorm";
 import { AdminGuard } from "../../core/AdminGuard";
 import { AppDataSource } from "../../core/datasource";
 import { Subscription } from "../../entities/Subscription";
+import { AppError } from "../../core/errors/AppError";
+import { ErrorCode } from "../../core/errors/ErrorCode";
 import { Subscriber } from "../../entities/Subscriber";
 import { Invoice } from "../../entities/Invoice";
 import { CreateSubscriptionBody, UpdateSubscriptionBody } from "../../models/SubscriptionModels";
@@ -60,7 +62,7 @@ export class SubscriptionsController {
     @Returns(404)
     async get(@PathParams("id") id: string) {
         const sub = await this.repo().findOneBy({ id });
-        if (!sub) throw new NotFound("Subscription not found");
+        if (!sub) throw new AppError(404, ErrorCode.SUBSCRIPTION_NOT_FOUND, "Subscription not found");
         return sub;
     }
 
@@ -88,7 +90,7 @@ export class SubscriptionsController {
     @Returns(400)
     async update(@PathParams("id") id: string, @BodyParams() data: UpdateSubscriptionBody) {
         const sub = await this.repo().findOneBy({ id });
-        if (!sub) throw new NotFound("Subscription not found");
+        if (!sub) throw new AppError(404, ErrorCode.SUBSCRIPTION_NOT_FOUND, "Subscription not found");
 
         const interval = data.interval ?? sub.interval;
         if (interval === "one_time") {
@@ -125,7 +127,7 @@ export class SubscriptionsController {
     @Returns(404)
     async delete(@PathParams("id") id: string) {
         const sub = await this.repo().findOneBy({ id });
-        if (!sub) throw new NotFound("Subscription not found");
+        if (!sub) throw new AppError(404, ErrorCode.SUBSCRIPTION_NOT_FOUND, "Subscription not found");
 
         const subscriberRepo = AppDataSource.getRepository(Subscriber);
         const invoiceRepo = AppDataSource.getRepository(Invoice);
@@ -134,8 +136,8 @@ export class SubscriptionsController {
             where: { subscriptionId: id, status: In(["active", "trialing"]) },
         });
         if (activeCount > 0) {
-            throw new BadRequest(
-                `Cannot delete: ${activeCount} active/trialing subscriber(s). Cancel their subscriptions first.`,
+            throw new AppError(400, ErrorCode.BAD_REQUEST,
+                "Cannot delete subscription. There are active subscribers linked to it.",
             );
         }
 

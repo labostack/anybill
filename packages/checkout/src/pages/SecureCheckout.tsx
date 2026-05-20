@@ -4,10 +4,12 @@
 import { createSignal, onMount, For, Show } from "solid-js";
 import { useParams } from "@solidjs/router";
 import { ArrowLeft, Lock, ShieldCheck, AlertTriangle, Ticket } from "lucide-solid";
+import { useI18n } from "../locales/i18n";
 
 const API = "/api/checkout";
 
 export function SecureCheckout() {
+    const { t, locale, formatPrice, intervalLabel } = useI18n();
     const params = useParams<{ token: string }>();
     const [info, setInfo] = createSignal<any>(null);
     const [selectedProvider, setSelectedProvider] = createSignal("");
@@ -33,7 +35,7 @@ export function SecureCheckout() {
             if (!res.ok) {
                 const data = await res.json().catch(() => null);
                 throw new Error(
-                    data?.message || "This checkout link has expired or is invalid"
+                    data?.message || t("common.invalidLink")
                 );
             }
             const data = await res.json();
@@ -63,7 +65,12 @@ export function SecureCheckout() {
             });
             const data = await res.json();
             if (!res.ok || !data.valid) {
-                setCouponError(data.error || data.message || "Invalid coupon");
+                const rawError = data.errorCode || data.error || data.message || "";
+                let translated = t(`apiErrors.${rawError}` as any);
+                if (!translated || translated.includes("apiErrors.")) {
+                    translated = rawError || t("apiErrors.fallback");
+                }
+                setCouponError(translated);
             } else {
                 setCouponApplied(data);
                 setCouponError("");
@@ -97,8 +104,11 @@ export function SecureCheckout() {
                 }),
             });
             if (!res.ok) {
-                const err = await res.json();
-                throw new Error(err.message || "Payment failed");
+                const err = await res.json().catch(() => ({}));
+                const code = err.errorCode || err.error || err.message || "Payment failed";
+                let translated = t(`apiErrors.${code}` as any);
+                if (!translated || translated.includes("apiErrors.")) translated = code;
+                throw new Error(translated);
             }
             const { paymentUrl, invoiceId } = await res.json();
 
@@ -113,23 +123,13 @@ export function SecureCheckout() {
         }
     };
 
-    const formatPrice = (amount: number, currency: string) => {
-        return new Intl.NumberFormat("en-US", { style: "currency", currency }).format(amount / 100);
-    };
-
-    const intervalLabel = (interval: string, count: number) => {
-        if (interval === "one_time") return "one-time payment";
-        const unit = count > 1 ? `${count} ${interval}s` : interval;
-        return `per ${unit}`;
-    };
-
     return (
         <Show when={!tokenError()} fallback={
             <div class="confirm-container">
                 <div class="confirm-card">
                     <div class="token-error">
                         <AlertTriangle size={32} />
-                        <div class="token-error-title">Link expired</div>
+                        <div class="token-error-title">{t("common.linkExpired")}</div>
                         <div class="token-error-message">{tokenError()}</div>
                     </div>
                 </div>
@@ -155,7 +155,7 @@ export function SecureCheckout() {
                             <Show when={referrerUrl()}>
                                 <a class="checkout-back" href={referrerUrl()}>
                                     <ArrowLeft size={16} />
-                                    <span>Back</span>
+                                    <span>{t("common.back")}</span>
                                 </a>
                             </Show>
 
@@ -167,7 +167,7 @@ export function SecureCheckout() {
                                     </div>
                                 </Show>
                                 <span class="checkout-brand-name">
-                                    {info().checkoutConfig?.brandName || "Checkout"}
+                                    {info().checkoutConfig?.brandName || t("common.checkout")}
                                 </span>
                             </div>
 
@@ -204,7 +204,7 @@ export function SecureCheckout() {
                                     <div class="order-row order-discount-row">
                                         <div>
                                             <div class="order-item-name order-discount-label">
-                                                Promo {couponApplied().coupon?.code || couponApplied().code}
+                                                {t("checkout.promoApplied")} {couponApplied().coupon?.code || couponApplied().code}
                                             </div>
                                         </div>
                                         <div class="order-item-price order-discount-value">
@@ -215,7 +215,7 @@ export function SecureCheckout() {
 
                                 {/* Total */}
                                 <div class="order-total">
-                                    <span class="order-total-label">Total due today</span>
+                                    <span class="order-total-label">{t("checkout.totalDueToday")}</span>
                                     <span class="order-total-value">
                                         {formatPrice(effectiveAmount(), info().subscription.currency)}
                                     </span>
@@ -227,7 +227,7 @@ export function SecureCheckout() {
                                 <Show when={!showCouponInput()}>
                                     <button class="coupon-toggle" onClick={() => setShowCouponInput(true)}>
                                         <Ticket size={14} />
-                                        <span>Add promo code</span>
+                                        <span>{t("checkout.addPromoCode")}</span>
                                     </button>
                                 </Show>
                                 <Show when={showCouponInput()}>
@@ -235,7 +235,7 @@ export function SecureCheckout() {
                                         <input
                                             type="text"
                                             class="coupon-input"
-                                            placeholder="Promo code"
+                                            placeholder={t("checkout.promoCodePlaceholder")}
                                             value={couponCode()}
                                             onInput={(e) => setCouponCode(e.target.value.toUpperCase())}
                                             onKeyDown={(e) => e.key === "Enter" && applyCoupon()}
@@ -245,7 +245,7 @@ export function SecureCheckout() {
                                             onClick={applyCoupon}
                                             disabled={!couponCode().trim() || applyingCoupon()}
                                         >
-                                            {applyingCoupon() ? "..." : "Apply"}
+                                            {applyingCoupon() ? "..." : t("common.apply")}
                                         </button>
                                     </div>
                                     <Show when={couponError()}>
@@ -260,10 +260,12 @@ export function SecureCheckout() {
                                     <Ticket size={14} />
                                     <span class="coupon-applied-code">{couponApplied().coupon?.code || couponApplied().code}</span>
                                     <span class="coupon-applied-desc">
-                                        {couponApplied().coupon?.type === "percent" || couponApplied().type === "percent"
-                                            ? `${couponApplied().coupon?.value || couponApplied().value}% off`
-                                            : `${formatPrice(couponApplied().coupon?.value || couponApplied().value, info().subscription.currency)} off`
-                                        }
+                                        {(() => {
+                                            const val = couponApplied().coupon?.value || couponApplied().value;
+                                            const isPercent = couponApplied().coupon?.type === "percent" || couponApplied().type === "percent";
+                                            const formattedVal = isPercent ? `${val}%` : formatPrice(val, info().subscription.currency);
+                                            return t("checkout.discountApplied", { amount: formattedVal });
+                                        })()}
                                     </span>
                                     <Show when={!info().coupon}>
                                         <button class="coupon-remove" onClick={removeCoupon}>✕</button>
@@ -275,7 +277,7 @@ export function SecureCheckout() {
                             <Show when={!info().checkoutConfig?.hidePoweredBy}>
                                 <div class="powered-by">
                                     <Lock size={12} />
-                                    Powered by <a href="https://github.com/dortanes/anybill" target="_blank" rel="noopener noreferrer">anybill</a>
+                                    {t("common.poweredBy")} <a href="https://github.com/dortanes/anybill" target="_blank" rel="noopener noreferrer">anybill</a>
                                 </div>
                             </Show>
                         </div>
@@ -284,13 +286,13 @@ export function SecureCheckout() {
                     {/* ─── Right Column: Payment ─── */}
                     <div class="checkout-right">
                         <div class="checkout-right-inner">
-                            <div class="payment-section-title">Pay with</div>
+                            <div class="payment-section-title">{t("checkout.payWith")}</div>
 
                             <Show when={error()}>
                                 <div class="error-msg">{error()}</div>
                             </Show>
 
-                            <div class="payment-section-label">Payment method</div>
+                            <div class="payment-section-label">{t("checkout.paymentMethod")}</div>
 
                             <div class="provider-list">
                                 <For each={info().providers}>
@@ -320,14 +322,14 @@ export function SecureCheckout() {
                                 onClick={pay}
                             >
                                 {loading()
-                                    ? "Processing..."
-                                    : `Pay ${formatPrice(effectiveAmount(), info().subscription.currency)}`
+                                    ? t("common.processing")
+                                    : t("checkout.payAmount", { amount: formatPrice(effectiveAmount(), info().subscription.currency) })
                                 }
                             </button>
 
                             <div class="security-info">
                                 <ShieldCheck size={14} />
-                                <span>Your payment is processed securely. We never store your card details.</span>
+                                <span>{t("checkout.secureInfo")}</span>
                             </div>
                         </div>
                     </div>

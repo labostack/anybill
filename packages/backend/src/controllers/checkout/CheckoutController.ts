@@ -12,6 +12,8 @@ import { BadRequest, NotFound } from "@tsed/exceptions";
 import { Tags, Summary, Description, Returns } from "@tsed/schema";
 import { AppDataSource } from "../../core/datasource";
 import { Subscription } from "../../entities/Subscription";
+import { AppError } from "../../core/errors/AppError";
+import { ErrorCode } from "../../core/errors/ErrorCode";
 import { Account } from "../../entities/Account";
 import { BillingService } from "../../services/BillingService";
 import { CouponService } from "../../services/CouponService";
@@ -43,7 +45,7 @@ export class CheckoutController {
     async pay(@BodyParams() { token, provider, couponCode }: CheckoutPayBody) {
         const payload = verifyCheckoutToken(token);
         if (!payload) {
-            throw new BadRequest("Invalid or expired checkout token");
+            throw new AppError(400, ErrorCode.INVALID_CHECKOUT_TOKEN, "Invalid or expired checkout token");
         }
         // Use couponCode from body, or from token if pre-applied
         const effectiveCouponCode = couponCode || payload.coupon_code;
@@ -63,7 +65,7 @@ export class CheckoutController {
     @Returns(404)
     async confirm(@PathParams("invoiceId") invoiceId: string) {
         const result = await this.billing.getInvoiceStatus(invoiceId);
-        if (!result) throw new NotFound("Invoice not found");
+        if (!result) throw new AppError(404, ErrorCode.INVOICE_NOT_FOUND, "Invoice not found");
         return result;
     }
 
@@ -85,7 +87,7 @@ export class CheckoutController {
     async resolve(@PathParams("token") token: string) {
         const payload = verifyCheckoutToken(token);
         if (!payload) {
-            throw new BadRequest("Invalid or expired checkout link");
+            throw new AppError(400, ErrorCode.INVALID_CHECKOUT_TOKEN, "Invalid or expired checkout link");
         }
 
         const subscription = await AppDataSource.getRepository(Subscription).findOneBy({
@@ -93,7 +95,7 @@ export class CheckoutController {
             isActive: true,
         });
         if (!subscription) {
-            throw new NotFound("Subscription not found or inactive");
+            throw new AppError(404, ErrorCode.SUBSCRIPTION_NOT_FOUND, "Subscription not found or inactive");
         }
 
         const account = await AppDataSource.getRepository(Account).findOne({ where: {} });
@@ -148,13 +150,13 @@ export class CheckoutController {
     @Returns(400)
     async applyCoupon(@BodyParams() body: { token: string; code: string }) {
         const payload = verifyCheckoutToken(body.token);
-        if (!payload) throw new BadRequest("Invalid or expired checkout token");
+        if (!payload) throw new AppError(400, ErrorCode.INVALID_CHECKOUT_TOKEN, "Invalid or expired checkout token");
 
         const result = await this.couponService.validateCoupon(body.code, payload.sub_id, payload.uid);
-        if (!result.valid) return { valid: false, error: result.error };
+        if (!result.valid) return { valid: false, errorCode: result.errorCode, error: result.error };
 
         const subscription = await AppDataSource.getRepository(Subscription).findOneBy({ id: payload.sub_id });
-        if (!subscription) throw new NotFound("Subscription not found");
+        if (!subscription) throw new AppError(404, ErrorCode.SUBSCRIPTION_NOT_FOUND, "Subscription not found");
 
         const discount = this.couponService.calculateDiscount(result.coupon!, subscription.amount);
         return {
