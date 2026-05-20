@@ -16,9 +16,9 @@ cp .env.example .env
 docker compose up -d
 ```
 
-> **Note:** `@anybill/sdk` is automatically injected by the engine — you do NOT
-> need to install it in the providers directory. Only install provider-specific
-> packages (e.g. `stripe`, `axios`) if your provider uses them.
+> **Tip:** `@anybill/sdk` is provided automatically by the engine at runtime.
+> You can still `npm install @anybill/sdk` in your providers directory for
+> IDE autocompletion and type checking.
 
 ## Structure
 
