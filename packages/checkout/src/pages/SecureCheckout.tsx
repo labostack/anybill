@@ -3,7 +3,7 @@
  *  Stripe-style layout as the regular Checkout page. */
 import { createSignal, onMount, For, Show } from "solid-js";
 import { useParams } from "@solidjs/router";
-import { ArrowLeft, Lock, ShieldCheck, AlertTriangle } from "lucide-solid";
+import { ArrowLeft, Lock, ShieldCheck, AlertTriangle, Ticket } from "lucide-solid";
 
 const API = "/api/checkout";
 
@@ -15,6 +15,13 @@ export function SecureCheckout() {
     const [error, setError] = createSignal("");
     const [tokenError, setTokenError] = createSignal("");
     const [referrerUrl, setReferrerUrl] = createSignal("");
+
+    // Coupon signals
+    const [couponCode, setCouponCode] = createSignal("");
+    const [couponApplied, setCouponApplied] = createSignal<any>(null);
+    const [couponError, setCouponError] = createSignal("");
+    const [applyingCoupon, setApplyingCoupon] = createSignal(false);
+    const [showCouponInput, setShowCouponInput] = createSignal(false);
 
     onMount(async () => {
         // Capture referrer for "back" button (like Stripe)
@@ -34,10 +41,47 @@ export function SecureCheckout() {
             // resolve returns subscription, providers, and checkoutConfig
             setInfo(data);
             if (data.providers.length === 1) setSelectedProvider(data.providers[0].id);
+
+            // Pre-applied coupon from resolve
+            if (data.coupon) {
+                setCouponApplied(data.coupon);
+            }
         } catch (err: any) {
             setTokenError(err.message);
         }
     });
+
+    const applyCoupon = async () => {
+        if (!couponCode().trim()) return;
+        setApplyingCoupon(true);
+        setCouponError("");
+        try {
+            const res = await fetch(`${API}/apply-coupon`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ token: params.token, code: couponCode().trim() }),
+            });
+            const data = await res.json();
+            if (!res.ok || !data.valid) {
+                setCouponError(data.error || data.message || "Invalid coupon");
+            } else {
+                setCouponApplied(data);
+                setCouponError("");
+            }
+        } catch (err: any) {
+            setCouponError(err.message);
+        } finally {
+            setApplyingCoupon(false);
+        }
+    };
+
+    const removeCoupon = () => {
+        setCouponApplied(null);
+        setCouponCode("");
+        setCouponError("");
+    };
+
+    const effectiveAmount = () => couponApplied() ? couponApplied().finalAmount : info().subscription.amount;
 
     const pay = async () => {
         setLoading(true);
@@ -49,6 +93,7 @@ export function SecureCheckout() {
                 body: JSON.stringify({
                     token: params.token,
                     provider: selectedProvider(),
+                    couponCode: couponApplied() ? (couponApplied().coupon?.code || couponApplied().code) : undefined,
                 }),
             });
             if (!res.ok) {
@@ -129,7 +174,11 @@ export function SecureCheckout() {
                             {/* Product */}
                             <div class="product-name">{info().subscription.name}</div>
                             <div class="product-price">
-                                {formatPrice(info().subscription.amount, info().subscription.currency)}
+                                <Show when={couponApplied()} fallback={formatPrice(info().subscription.amount, info().subscription.currency)}>
+                                    <span class="price-original">{formatPrice(info().subscription.amount, info().subscription.currency)}</span>
+                                    {" "}
+                                    <span class="price-discounted">{formatPrice(effectiveAmount(), info().subscription.currency)}</span>
+                                </Show>
                             </div>
                             <div class="product-interval">
                                 {intervalLabel(info().subscription.interval, info().subscription.intervalCount)}
@@ -137,6 +186,7 @@ export function SecureCheckout() {
 
                             {/* Order Summary */}
                             <div class="order-summary">
+                                {/* Item row */}
                                 <div class="order-row">
                                     <div>
                                         <div class="order-item-name">{info().subscription.name}</div>
@@ -148,13 +198,78 @@ export function SecureCheckout() {
                                         {formatPrice(info().subscription.amount, info().subscription.currency)}
                                     </div>
                                 </div>
+
+                                {/* Discount row — only when coupon applied */}
+                                <Show when={couponApplied()}>
+                                    <div class="order-row order-discount-row">
+                                        <div>
+                                            <div class="order-item-name order-discount-label">
+                                                Promo {couponApplied().coupon?.code || couponApplied().code}
+                                            </div>
+                                        </div>
+                                        <div class="order-item-price order-discount-value">
+                                            −{formatPrice(couponApplied().discountAmount, info().subscription.currency)}
+                                        </div>
+                                    </div>
+                                </Show>
+
+                                {/* Total */}
                                 <div class="order-total">
                                     <span class="order-total-label">Total due today</span>
                                     <span class="order-total-value">
-                                        {formatPrice(info().subscription.amount, info().subscription.currency)}
+                                        {formatPrice(effectiveAmount(), info().subscription.currency)}
                                     </span>
                                 </div>
                             </div>
+
+                            {/* Coupon / Promo Code — below order summary */}
+                            <Show when={!couponApplied()}>
+                                <Show when={!showCouponInput()}>
+                                    <button class="coupon-toggle" onClick={() => setShowCouponInput(true)}>
+                                        <Ticket size={14} />
+                                        <span>Add promo code</span>
+                                    </button>
+                                </Show>
+                                <Show when={showCouponInput()}>
+                                    <div class="coupon-input-wrap">
+                                        <input
+                                            type="text"
+                                            class="coupon-input"
+                                            placeholder="Promo code"
+                                            value={couponCode()}
+                                            onInput={(e) => setCouponCode(e.target.value.toUpperCase())}
+                                            onKeyDown={(e) => e.key === "Enter" && applyCoupon()}
+                                        />
+                                        <button
+                                            class="coupon-apply-btn"
+                                            onClick={applyCoupon}
+                                            disabled={!couponCode().trim() || applyingCoupon()}
+                                        >
+                                            {applyingCoupon() ? "..." : "Apply"}
+                                        </button>
+                                    </div>
+                                    <Show when={couponError()}>
+                                        <div class="coupon-error">{couponError()}</div>
+                                    </Show>
+                                </Show>
+                            </Show>
+
+                            {/* Applied coupon badge */}
+                            <Show when={couponApplied()}>
+                                <div class="coupon-applied">
+                                    <Ticket size={14} />
+                                    <span class="coupon-applied-code">{couponApplied().coupon?.code || couponApplied().code}</span>
+                                    <span class="coupon-applied-desc">
+                                        {couponApplied().coupon?.type === "percent" || couponApplied().type === "percent"
+                                            ? `${couponApplied().coupon?.value || couponApplied().value}% off`
+                                            : `${formatPrice(couponApplied().coupon?.value || couponApplied().value, info().subscription.currency)} off`
+                                        }
+                                    </span>
+                                    <Show when={!info().coupon}>
+                                        <button class="coupon-remove" onClick={removeCoupon}>✕</button>
+                                    </Show>
+                                </div>
+                            </Show>
 
                             {/* Powered by */}
                             <Show when={!info().checkoutConfig?.hidePoweredBy}>
@@ -198,6 +313,7 @@ export function SecureCheckout() {
                                 </For>
                             </div>
 
+
                             <button
                                 class="pay-btn"
                                 disabled={!selectedProvider() || loading()}
@@ -205,7 +321,7 @@ export function SecureCheckout() {
                             >
                                 {loading()
                                     ? "Processing..."
-                                    : `Pay ${formatPrice(info().subscription.amount, info().subscription.currency)}`
+                                    : `Pay ${formatPrice(effectiveAmount(), info().subscription.currency)}`
                                 }
                             </button>
 
@@ -220,3 +336,4 @@ export function SecureCheckout() {
         </Show>
     );
 }
+

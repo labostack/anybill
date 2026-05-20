@@ -62,6 +62,18 @@ export class Invoice {
     @Column({ length: 3 })
     currency!: string;
 
+    /** Original amount before discount (minor units). null if no coupon applied. */
+    @Column({ type: "integer", nullable: true, default: null })
+    originalAmount!: number | null;
+
+    /** Discount amount in minor units. 0 if no coupon applied. */
+    @Column({ type: "integer", default: 0 })
+    discountAmount!: number;
+
+    /** Reference to the coupon used for this invoice. null if no coupon applied. */
+    @Column({ type: "text", nullable: true, default: null })
+    couponId!: string | null;
+
     /** Current payment status. */
     @Column({ type: "varchar", default: "pending" })
     status!: InvoiceStatus;

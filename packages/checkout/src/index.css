@@ -1099,6 +1099,167 @@ body {
 
 /* ─── Portal Mobile Responsive ─────────────────────── */
 
+/* ─── Coupon / Promo Code ──────────────────────────── */
+
+.coupon-toggle {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: none;
+    border: none;
+    color: var(--accent);
+    font-family: var(--font);
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    padding: 0;
+    margin-top: 16px;
+    transition: all 0.2s var(--ease);
+}
+
+.coupon-toggle span {
+    text-decoration: underline;
+    text-underline-offset: 2px;
+}
+
+.coupon-toggle:hover {
+    color: var(--accent-hover);
+}
+
+.coupon-input-wrap {
+    display: flex;
+    gap: 8px;
+    margin-top: 16px;
+}
+
+.coupon-input {
+    flex: 1;
+    padding: 10px 14px;
+    background: var(--bg-input);
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--text);
+    font-family: var(--font);
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    outline: none;
+    transition: border-color 0.2s var(--ease);
+}
+
+.coupon-input:focus {
+    border-color: var(--border-focus);
+}
+
+.coupon-input::placeholder {
+    text-transform: none;
+    letter-spacing: 0;
+    font-weight: 400;
+    color: var(--text-muted);
+}
+
+.coupon-apply-btn {
+    padding: 10px 18px;
+    background: var(--bg-elevated);
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--text);
+    font-family: var(--font);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s var(--ease);
+    white-space: nowrap;
+}
+
+.coupon-apply-btn:hover:not(:disabled) {
+    border-color: var(--border-hover);
+    background: var(--bg-card);
+}
+
+.coupon-apply-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.coupon-error {
+    font-size: 12px;
+    color: var(--danger);
+    margin-top: 6px;
+}
+
+.coupon-applied {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    background: rgba(104, 211, 145, 0.08);
+    border: 1px solid rgba(104, 211, 145, 0.2);
+    border-radius: var(--radius-sm);
+    margin-top: 16px;
+    color: var(--success);
+}
+
+.coupon-applied svg {
+    flex-shrink: 0;
+}
+
+.coupon-applied-code {
+    font-weight: 600;
+    font-size: 13px;
+    letter-spacing: 0.5px;
+}
+
+.coupon-applied-desc {
+    font-size: 12px;
+    opacity: 0.7;
+    flex: 1;
+}
+
+.coupon-remove {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 14px;
+    padding: 2px 4px;
+    border-radius: 4px;
+    transition: all 0.2s var(--ease);
+    font-family: var(--font);
+}
+
+.coupon-remove:hover {
+    color: var(--danger);
+    background: var(--danger-bg);
+}
+
+/* Discount styling in order summary */
+.order-discount-row {
+    border-top: none !important;
+}
+
+.order-discount-label {
+    color: var(--success) !important;
+    font-size: 13px !important;
+}
+
+.order-discount-value {
+    color: var(--success) !important;
+}
+
+/* Strikethrough original price */
+.price-original {
+    text-decoration: line-through;
+    opacity: 0.4;
+    font-size: 0.7em;
+}
+
+.price-discounted {
+    color: var(--success);
+}
+
+
 @media (max-width: 768px) {
     .portal-action-card {
         padding: 14px 16px;

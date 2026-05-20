@@ -24,4 +24,9 @@ export class CreateCheckoutLinkBody {
     @Min(60)
     @Max(86400)
     ttl?: number;
+
+    /** Optional coupon code to pre-apply to the checkout link. */
+    @Optional()
+    @MaxLength(32)
+    coupon_code?: string;
 }

@@ -19,6 +19,8 @@ export interface CheckoutTokenPayload {
     uid: string;
     /** Expiration timestamp (Unix seconds). */
     exp: number;
+    /** Pre-applied coupon code (optional). */
+    coupon_code?: string;
 }
 
 /** Default token TTL in seconds (30 minutes). */
@@ -30,15 +32,19 @@ const DEFAULT_TTL = 1800;
  * @param subId      - Subscription plan UUID.
  * @param uid        - External user identifier.
  * @param ttlSeconds - Token lifetime in seconds (default 1800 = 30 min).
+ * @param couponCode - Optional pre-applied coupon code.
  * @returns The encrypted token string and its expiration date.
  */
 export function createCheckoutToken(
     subId: string,
     uid: string,
     ttlSeconds: number = DEFAULT_TTL,
+    couponCode?: string,
 ): { token: string; expiresAt: Date } {
     const exp = Math.floor(Date.now() / 1000) + ttlSeconds;
-    const token = encryptToken({ sub_id: subId, uid, exp });
+    const payload: CheckoutTokenPayload = { sub_id: subId, uid, exp };
+    if (couponCode) payload.coupon_code = couponCode;
+    const token = encryptToken(payload);
 
     return {
         token,

@@ -14,13 +14,17 @@ import { AppDataSource } from "../../core/datasource";
 import { Subscription } from "../../entities/Subscription";
 import { Account } from "../../entities/Account";
 import { BillingService } from "../../services/BillingService";
+import { CouponService } from "../../services/CouponService";
 import { CheckoutPayBody } from "../../models/CheckoutModels";
 import { verifyCheckoutToken } from "../../core/checkoutToken";
 
 @Controller("/")
 @Tags("Checkout")
 export class CheckoutController {
-    constructor(private readonly billing: BillingService) {}
+    constructor(
+        private readonly billing: BillingService,
+        private readonly couponService: CouponService,
+    ) {}
 
     /**
      * Initiate a payment.
@@ -36,12 +40,14 @@ export class CheckoutController {
     @Description("Verifies the checkout token, creates a subscriber (if needed), generates an invoice, and returns a payment URL.")
     @Returns(200)
     @Returns(400)
-    async pay(@BodyParams() { token, provider }: CheckoutPayBody) {
+    async pay(@BodyParams() { token, provider, couponCode }: CheckoutPayBody) {
         const payload = verifyCheckoutToken(token);
         if (!payload) {
             throw new BadRequest("Invalid or expired checkout token");
         }
-        return this.billing.createPayment(payload.sub_id, payload.uid, provider);
+        // Use couponCode from body, or from token if pre-applied
+        const effectiveCouponCode = couponCode || payload.coupon_code;
+        return this.billing.createPayment(payload.sub_id, payload.uid, provider, effectiveCouponCode);
     }
 
     /**
@@ -92,6 +98,22 @@ export class CheckoutController {
 
         const account = await AppDataSource.getRepository(Account).findOne({ where: {} });
 
+        // If token has a pre-applied coupon, validate and return coupon data.
+        let coupon = undefined;
+        if (payload.coupon_code) {
+            const result = await this.couponService.validateCoupon(payload.coupon_code, subscription.id, payload.uid);
+            if (result.valid && result.coupon) {
+                const disc = this.couponService.calculateDiscount(result.coupon, subscription.amount);
+                coupon = {
+                    code: result.coupon.code,
+                    type: result.coupon.type,
+                    value: result.coupon.value,
+                    discountAmount: disc.discountAmount,
+                    finalAmount: disc.finalAmount,
+                };
+            }
+        }
+
         return {
             sub_id: payload.sub_id,
             uid: payload.uid,
@@ -106,7 +128,39 @@ export class CheckoutController {
             },
             providers: this.billing.getProviders(),
             checkoutConfig: account?.checkoutConfig || {},
+            coupon,
+        };
+    }
+
+    /**
+     * Validate and preview a coupon code against a checkout token.
+     *
+     * Used by the checkout SPA to show a discount preview before
+     * the user submits payment.
+     *
+     * @returns Validation result with discount details.
+     */
+    @Post("/apply-coupon")
+    @Summary("Apply coupon to checkout")
+    @Description("Validates a coupon code against a checkout token and returns discount preview.")
+    @Returns(200)
+    @Returns(400)
+    async applyCoupon(@BodyParams() body: { token: string; code: string }) {
+        const payload = verifyCheckoutToken(body.token);
+        if (!payload) throw new BadRequest("Invalid or expired checkout token");
+
+        const result = await this.couponService.validateCoupon(body.code, payload.sub_id, payload.uid);
+        if (!result.valid) return { valid: false, error: result.error };
+
+        const subscription = await AppDataSource.getRepository(Subscription).findOneBy({ id: payload.sub_id });
+        if (!subscription) throw new NotFound("Subscription not found");
+
+        const discount = this.couponService.calculateDiscount(result.coupon!, subscription.amount);
+        return {
+            valid: true,
+            coupon: { code: result.coupon!.code, type: result.coupon!.type, value: result.coupon!.value },
+            discountAmount: discount.discountAmount,
+            finalAmount: discount.finalAmount,
         };
     }
 }
-

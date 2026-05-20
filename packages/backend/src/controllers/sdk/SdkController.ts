@@ -15,6 +15,7 @@ import { AppDataSource } from "../../core/datasource";
 import { Subscription } from "../../entities/Subscription";
 import { Subscriber } from "../../entities/Subscriber";
 import { Invoice } from "../../entities/Invoice";
+import { Coupon } from "../../entities/Coupon";
 import { createCheckoutToken } from "../../core/checkoutToken";
 import { createPortalToken } from "../../core/portalToken";
 import { CreateCheckoutLinkBody } from "../../models/CheckoutLinkModels";
@@ -92,7 +93,7 @@ export class SdkController {
     @Returns(200)
     @Returns(400)
     @Returns(404)
-    async createCheckoutLink(@BodyParams() { sub_id, uid, ttl }: CreateCheckoutLinkBody) {
+    async createCheckoutLink(@BodyParams() { sub_id, uid, ttl, coupon_code }: CreateCheckoutLinkBody) {
         const subscription = await AppDataSource.getRepository(Subscription).findOneBy({
             id: sub_id,
             isActive: true,
@@ -101,7 +102,13 @@ export class SdkController {
             throw new NotFound("Subscription not found or inactive");
         }
 
-        const { token, expiresAt } = createCheckoutToken(sub_id, uid, ttl);
+        // Validate coupon exists and is active (full per-user validation happens at checkout).
+        if (coupon_code) {
+            const coupon = await AppDataSource.getRepository(Coupon).findOneBy({ code: coupon_code.toUpperCase(), isActive: true });
+            if (!coupon) throw new NotFound("Coupon not found or inactive");
+        }
+
+        const { token, expiresAt } = createCheckoutToken(sub_id, uid, ttl, coupon_code?.toUpperCase());
 
         return {
             token,

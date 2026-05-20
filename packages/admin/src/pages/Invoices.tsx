@@ -1,5 +1,5 @@
 /** Invoices page — filterable, paginated list of all payment transactions. */
-import { createSignal, onMount, For } from "solid-js";
+import { createSignal, onMount, For, Show } from "solid-js";
 import { api } from "../api/client";
 
 export function Invoices() {
@@ -58,7 +58,16 @@ export function Invoices() {
                                     <td class="mono">{inv.id.slice(0, 8)}</td>
                                     <td>{inv.subscriber?.uid || "—"}</td>
                                     <td style="color: var(--text); font-weight: 500">{inv.subscription?.name || "—"}</td>
-                                    <td>{formatAmount(inv.amount, inv.currency)}</td>
+                                    <td>
+                                        <Show when={inv.couponId} fallback={formatAmount(inv.amount, inv.currency)}>
+                                            <div>
+                                                <span style="text-decoration: line-through; opacity: 0.4; margin-right: 6px; font-size: 12px">
+                                                    {formatAmount(inv.originalAmount || inv.amount, inv.currency)}
+                                                </span>
+                                                <span>{formatAmount(inv.amount, inv.currency)}</span>
+                                            </div>
+                                        </Show>
+                                    </td>
                                     <td><span class="badge" style="background: rgba(255,255,255,0.05); color: var(--text-secondary)">{inv.provider}</span></td>
                                     <td><span class={`badge badge-${inv.status}`}>{inv.status}</span></td>
                                     <td>{new Date(inv.createdAt).toLocaleDateString()}</td>

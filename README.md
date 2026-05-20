@@ -36,6 +36,7 @@ Payment providers are connected through the `@anybill/sdk` — you extend a base
 - **Group subscriptions** — built-in Squads: an owner pays, members get access. Auto-created on purchase of squad-enabled plans.
 - **Outgoing webhooks** — HMAC-SHA256 signed events dispatched to your endpoints with exponential backoff retries.
 - **Client portal** — encrypted-token-based subscriber self-service: cancel, renew, change plan.
+- **Coupons & promo codes** — percentage or fixed-amount discounts with per-user limits, plan restrictions, and expiration.
 
 ## Quick Start
 
@@ -184,6 +185,7 @@ Failed deliveries are retried with exponential backoff (10s → 1m → 5m → 30
 | `squad.dissolved` | Squad dissolved |
 | `squad.member_added` | Member added to squad |
 | `squad.member_removed` | Member removed from squad |
+| `coupon.redeemed` | Coupon applied to a paid invoice |
 
 ## Configuration
 
@@ -247,6 +249,7 @@ JWT-protected. Manages plans, subscribers, invoices, settings, API keys, and web
 | `GET` | `/webhooks/deliveries` | Delivery log |
 | `POST` | `/checkout-links` | Generate checkout link |
 | `POST` | `/portal-links` | Generate portal link |
+| `GET/POST/PUT/DELETE` | `/coupons[/:id]` | Coupon management |
 
 </details>
 
@@ -283,6 +286,7 @@ Public. Powers the checkout flow.
 | --- | --- | --- |
 | `GET` | `/resolve/:token` | Resolve checkout token |
 | `POST` | `/pay` | Initiate payment |
+| `POST` | `/apply-coupon` | Validate & preview coupon |
 | `GET` | `/confirm/:invoiceId` | Poll payment status |
 
 </details>

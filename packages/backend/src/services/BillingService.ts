@@ -21,6 +21,7 @@ import { Account } from "../entities/Account";
 import { Squad } from "../entities/Squad";
 import { ProviderLoader } from "./ProviderLoader";
 import { OutgoingWebhookService } from "./OutgoingWebhookService";
+import { CouponService } from "./CouponService";
 
 @Injectable()
 export class BillingService implements OnInit {
@@ -29,6 +30,7 @@ export class BillingService implements OnInit {
     constructor(
         private readonly providerLoader: ProviderLoader,
         private readonly outgoingWebhooks: OutgoingWebhookService,
+        private readonly couponService: CouponService,
     ) {}
 
     @Inject()
@@ -82,10 +84,11 @@ export class BillingService implements OnInit {
      * @param subscriptionId - ID of the subscription plan.
      * @param uid            - External user identifier.
      * @param providerName   - Payment provider to use.
+     * @param couponCode     - Optional coupon/promo code to apply.
      * @returns Invoice ID and payment URL.
      * @throws {Error} If the subscription doesn't exist or one-time was already purchased.
      */
-    async createPayment(subscriptionId: string, uid: string, providerName: string) {
+    async createPayment(subscriptionId: string, uid: string, providerName: string, couponCode?: string) {
         const invoiceRepo = AppDataSource.getRepository(Invoice);
         const subscriberRepo = AppDataSource.getRepository(Subscriber);
         const subscriptionRepo = AppDataSource.getRepository(Subscription);
@@ -148,20 +151,42 @@ export class BillingService implements OnInit {
                 .execute();
         }
 
+        // Apply coupon if provided.
+        let invoiceAmount = subscription.amount;
+        let originalAmount: number | null = null;
+        let discountAmount = 0;
+        let couponId: string | null = null;
+
+        if (couponCode) {
+            const result = await this.couponService.validateCoupon(couponCode, subscriptionId, uid);
+            if (!result.valid) throw new BadRequest(result.error || "Invalid coupon");
+
+            const discount = this.couponService.calculateDiscount(result.coupon!, subscription.amount);
+            originalAmount = subscription.amount;
+            discountAmount = discount.discountAmount;
+            invoiceAmount = discount.finalAmount;
+            couponId = result.coupon!.id;
+        }
+
         // Create pending invoice.
         const invoice = invoiceRepo.create({
             subscriberId: subscriber.id,
             subscriptionId: subscription.id,
             provider: providerName,
-            amount: subscription.amount,
+            amount: invoiceAmount,
             currency: subscription.currency,
             status: "pending",
+            originalAmount,
+            discountAmount,
+            couponId,
         });
         await invoiceRepo.save(invoice);
 
+
+
         // Generate payment link via engine.
         const link = await this.engine.createPaymentLink(providerName, {
-            plan: { ...subscription, invoiceId: invoice.id },
+            plan: { ...subscription, amount: invoiceAmount, invoiceId: invoice.id },
             user: { uid, subscriberId: subscriber.id },
         });
 
@@ -309,6 +334,21 @@ export class BillingService implements OnInit {
             providerInvoiceId: invoice.providerInvoiceId,
             paidAt: invoice.paidAt?.toISOString(),
         });
+
+        // Redeem coupon and dispatch webhook if a coupon was used.
+        if (invoice.couponId) {
+            await this.couponService.redeemCoupon(invoice.couponId);
+
+            await this.outgoingWebhooks.dispatch("coupon.redeemed", {
+                couponId: invoice.couponId,
+                invoiceId: invoice.id,
+                subscriberId: invoice.subscriberId,
+                subscriptionId: invoice.subscriptionId,
+                discountAmount: invoice.discountAmount,
+                originalAmount: invoice.originalAmount,
+                finalAmount: invoice.amount,
+            });
+        }
     }
 
     /** Handle a failed payment: mark invoice as failed. */

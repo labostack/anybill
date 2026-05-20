@@ -46,6 +46,7 @@ import { SettingsController } from "../controllers/admin/SettingsController";
 import { ApiKeysController } from "../controllers/admin/ApiKeysController";
 import { WebhooksController } from "../controllers/admin/WebhooksController";
 import { CheckoutLinksController } from "../controllers/admin/CheckoutLinksController";
+import { CouponsController } from "../controllers/admin/CouponsController";
 
 // ─── Checkout Controllers ───────────────────────────────────────────
 import { CheckoutController } from "../controllers/checkout/CheckoutController";
@@ -82,6 +83,7 @@ import "../services/InvoiceExpirationWorker";
             ApiKeysController,
             WebhooksController,
             CheckoutLinksController,
+            CouponsController,
         ],
         "/api/checkout": [CheckoutController],
         "/api/portal": [PortalController],

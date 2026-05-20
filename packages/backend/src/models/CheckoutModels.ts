@@ -4,7 +4,7 @@
  * Request body models for checkout flow endpoints.
  */
 
-import { Required, MinLength } from "@tsed/schema";
+import { Required, Optional, MinLength } from "@tsed/schema";
 
 /**
  * Body for `POST /api/checkout/pay` — initiate a payment.
@@ -23,4 +23,8 @@ export class CheckoutPayBody {
     @Required()
     @MinLength(1)
     provider!: string;
+
+    /** Optional coupon / promo code to apply to this payment. */
+    @Optional()
+    couponCode?: string;
 }

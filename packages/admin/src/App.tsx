@@ -10,6 +10,7 @@ import { Invoices } from "./pages/Invoices";
 import { Settings } from "./pages/Settings";
 import { ApiKeys } from "./pages/ApiKeys";
 import { Webhooks } from "./pages/Webhooks";
+import { Coupons } from "./pages/Coupons";
 import { Embed } from "./pages/Embed";
 import { PaymentLinks } from "./pages/PaymentLinks";
 import { api } from "./api/client";
@@ -43,6 +44,7 @@ export default function App() {
                             <Route path="/subscriptions" component={Subscriptions} />
                             <Route path="/subscribers" component={Subscribers} />
                             <Route path="/invoices" component={Invoices} />
+                            <Route path="/coupons" component={Coupons} />
                             <Route path="/links" component={PaymentLinks} />
                             <Route path="/keys" component={ApiKeys} />
                             <Route path="/webhooks" component={Webhooks} />

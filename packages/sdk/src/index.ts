@@ -41,7 +41,7 @@
 
 // ─── Client SDK ─────────────────────────────────────────────────────
 export { AnybillSDK } from "./AnybillSDK";
-export type { AnybillSDKConfig, Subscription, Subscriber, Invoice, CheckoutLink, PortalLink, Squad, SquadMember, AccessCheck } from "./types";
+export type { AnybillSDKConfig, Subscription, Subscriber, Invoice, CheckoutLink, PortalLink, Squad, SquadMember, AccessCheck, Coupon } from "./types";
 
 // ─── Provider API ───────────────────────────────────────────────────
 export { AnybillProvider } from "./provider/AnybillProvider";

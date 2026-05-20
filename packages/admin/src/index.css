@@ -419,7 +419,11 @@ td.mono {
     letter-spacing: 0.2px;
 }
 
-.badge::before {
+.badge-active::before, .badge-paid::before,
+.badge-cancelled::before, .badge-failed::before,
+.badge-pending::before,
+.badge-expired::before, .badge-refunded::before, .badge-past_due::before,
+.badge-info::before {
     content: '';
     width: 6px;
     height: 6px;

@@ -13,6 +13,7 @@ import {
     Webhook,
     Code,
     Link,
+    Ticket,
 } from "lucide-solid";
 
 const links = [
@@ -20,6 +21,7 @@ const links = [
     { path: "/subscriptions", label: "Plans", icon: Package },
     { path: "/subscribers", label: "Subscribers", icon: Users },
     { path: "/invoices", label: "Invoices", icon: DollarSign },
+    { path: "/coupons", label: "Coupons", icon: Ticket },
 ];
 
 export function Layout(props: ParentProps) {

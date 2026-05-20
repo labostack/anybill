@@ -43,10 +43,16 @@ export interface Invoice {
     subscriptionId: string;
     provider: string;
     providerInvoiceId: string | null;
-    /** Amount in minor units. */
+    /** Amount in minor units (after discount, if any). */
     amount: number;
     /** ISO 4217 currency code. */
     currency: string;
+    /** Original amount before discount (minor units). */
+    originalAmount?: number;
+    /** Discount amount in minor units. */
+    discountAmount?: number;
+    /** Reference to the coupon used for this invoice. */
+    couponId?: string;
     status: "pending" | "paid" | "failed" | "refunded" | "cancelled";
     paidAt: string | null;
 }
@@ -116,4 +122,21 @@ export interface AccessCheck {
     subscriber?: Subscriber;
     /** The subscription plan. */
     subscription?: Subscription;
+}
+
+/** Discount coupon / promo code. */
+export interface Coupon {
+    id: string;
+    code: string;
+    type: "percent" | "fixed";
+    value: number;
+    currency?: string;
+    maxRedemptions?: number;
+    maxRedemptionsPerUser: number;
+    timesRedeemed: number;
+    subscriptionIds?: string[];
+    minAmount: number;
+    expiresAt?: string;
+    isActive: boolean;
+    createdAt: string;
 }
