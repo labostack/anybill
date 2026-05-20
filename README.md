@@ -37,6 +37,7 @@ Payment providers are connected through the `@anybill/sdk` — you extend a base
 - **Outgoing webhooks** — HMAC-SHA256 signed events dispatched to your endpoints with exponential backoff retries.
 - **Client portal** — encrypted-token-based subscriber self-service: cancel, renew, change plan.
 - **Coupons & promo codes** — percentage or fixed-amount discounts with per-user limits, plan restrictions, and expiration.
+- **Trial periods** — free trial days configurable per subscription plan, with seamless SDK-driven activation.
 
 ## Quick Start
 
@@ -267,6 +268,7 @@ API key-protected. Used by client applications via the TypeScript SDK.
 | `POST` | `/checkout-links` | Create checkout link |
 | `POST` | `/portal-links` | Create portal link |
 | `GET` | `/access` | Check access (direct or squad) |
+| `POST` | `/start-trial` | Start a free trial |
 | `POST` | `/squads` | Create a squad |
 | `GET` | `/squads/:id` | Get squad by ID |
 | `GET` | `/squads` | Find squad by owner UID |

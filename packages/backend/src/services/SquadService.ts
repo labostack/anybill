@@ -11,6 +11,7 @@
 import { Injectable, Inject } from "@tsed/di";
 import { NotFound, Conflict, BadRequest } from "@tsed/exceptions";
 import { Logger } from "@tsed/logger";
+import { In } from "typeorm";
 import { AppDataSource } from "../core/datasource";
 import { Squad } from "../entities/Squad";
 import { SquadMember } from "../entities/SquadMember";
@@ -45,7 +46,9 @@ export class SquadService {
             relations: ["subscription"],
         });
         if (!subscriber) throw new NotFound("Subscriber not found");
-        if (subscriber.status !== "active") throw new BadRequest("Subscriber is not active");
+        if (subscriber.status !== "active" && subscriber.status !== "trialing") {
+            throw new BadRequest("Subscriber is not active or trialing");
+        }
 
         const subscription = subscriber.subscription;
         if (!subscription.squadEnabled) {
@@ -303,7 +306,7 @@ export class SquadService {
         const memberRepo = AppDataSource.getRepository(SquadMember);
 
         // 1. Check direct subscription
-        const directWhere: any = { uid, status: "active" };
+        const directWhere: any = { uid, status: In(["active", "trialing"]) };
         if (subscriptionId) directWhere.subscriptionId = subscriptionId;
 
         const directSub = await subscriberRepo.findOne({

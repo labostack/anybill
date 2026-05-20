@@ -271,6 +271,128 @@ export class BillingService implements OnInit {
         };
     }
 
+    /**
+     * Start a free trial for a user on a subscription plan.
+     *
+     * Resolves the trial plan automatically if `subscriptionId` is omitted
+     * and there is exactly one active plan with `trialDays > 0`.
+     *
+     * @param uid            - External user identifier.
+     * @param subscriptionId - Optional plan ID. Auto-resolved if omitted.
+     * @returns Subscriber ID, trial end date, and status.
+     * @throws {BadRequest}  If no trial plans configured or multiple found without ID.
+     * @throws {Conflict}    If the user already used a trial on this plan.
+     */
+    async startTrial(uid: string, subscriptionId?: string): Promise<{
+        subscriberId: string;
+        trialEnd: Date;
+        status: "trialing";
+    }> {
+        const subscriberRepo = AppDataSource.getRepository(Subscriber);
+        const subscriptionRepo = AppDataSource.getRepository(Subscription);
+
+        // 1. Resolve subscription.
+        let subscription: Subscription;
+        if (subscriptionId) {
+            const found = await subscriptionRepo.findOneBy({ id: subscriptionId, isActive: true });
+            if (!found) throw new NotFound("Subscription not found or inactive");
+            subscription = found;
+        } else {
+            const trialPlans = await subscriptionRepo.find({
+                where: { isActive: true },
+            });
+            const withTrial = trialPlans.filter(p => p.trialDays > 0 && p.interval !== "one_time");
+            if (withTrial.length === 0) {
+                throw new BadRequest("No trial plans configured");
+            }
+            if (withTrial.length > 1) {
+                throw new BadRequest("Multiple trial plans found, specify subscriptionId");
+            }
+            subscription = withTrial[0];
+        }
+
+        // 2. Validate trial eligibility.
+        if (subscription.trialDays <= 0) {
+            throw new BadRequest("This plan does not offer a trial period");
+        }
+        if (subscription.interval === "one_time") {
+            throw new BadRequest("One-time plans do not support trials");
+        }
+
+        // 3. Check for existing subscriber.
+        const existing = await subscriberRepo.findOneBy({ uid, subscriptionId: subscription.id });
+        if (existing) {
+            if (existing.trialEnd) {
+                throw new Conflict("Trial already used for this plan");
+            }
+            if (existing.status === "active") {
+                throw new Conflict("User already has an active subscription to this plan");
+            }
+        }
+
+        // 4. Create or reuse subscriber.
+        const now = new Date();
+        const trialEnd = new Date(now);
+        trialEnd.setDate(trialEnd.getDate() + subscription.trialDays);
+
+        let subscriber: Subscriber;
+        if (existing) {
+            existing.status = "trialing";
+            existing.trialEnd = trialEnd;
+            existing.currentPeriodStart = now;
+            existing.currentPeriodEnd = trialEnd;
+            subscriber = await subscriberRepo.save(existing);
+        } else {
+            subscriber = subscriberRepo.create({
+                uid,
+                subscriptionId: subscription.id,
+                status: "trialing",
+                trialEnd,
+                currentPeriodStart: now,
+                currentPeriodEnd: trialEnd,
+            });
+            await subscriberRepo.save(subscriber);
+        }
+
+        // 5. Auto-create squad if plan supports it.
+        if (subscription.squadEnabled) {
+            const squadRepo = AppDataSource.getRepository(Squad);
+            const existingSquad = await squadRepo.findOneBy({ ownerId: subscriber.id });
+            if (!existingSquad) {
+                const squad = squadRepo.create({
+                    ownerId: subscriber.id,
+                    maxMembers: subscription.squadMaxMembers || 0,
+                });
+                await squadRepo.save(squad);
+                this.logger.info(`Auto-created squad ${squad.id} for trial subscriber ${subscriber.id}`);
+
+                await this.outgoingWebhooks.dispatch("squad.created", {
+                    squadId: squad.id,
+                    ownerUid: uid,
+                    subscriberId: subscriber.id,
+                    subscriptionId: subscription.id,
+                });
+            }
+        }
+
+        // 6. Dispatch webhook.
+        await this.outgoingWebhooks.dispatch("trial.started", {
+            subscriberId: subscriber.id,
+            subscriptionId: subscription.id,
+            uid,
+            trialDays: subscription.trialDays,
+            trialEnd: trialEnd.toISOString(),
+        });
+
+        this.logger.info(`Trial started: uid=${uid}, plan=${subscription.name}, ends=${trialEnd.toISOString()}`);
+
+        return {
+            subscriberId: subscriber.id,
+            trialEnd,
+            status: "trialing",
+        };
+    }
+
     // ─── Event Handlers ─────────────────────────────────────────
 
     /** Handle a confirmed payment: mark invoice as paid, activate subscriber. */
@@ -293,8 +415,14 @@ export class BillingService implements OnInit {
 
         const subscriber = await subscriberRepo.findOneBy({ id: invoice.subscriberId });
         if (subscriber) {
+            const wasTrial = subscriber.status === "trialing";
             subscriber.status = "active";
             subscriber.currentPeriodStart = new Date();
+
+            // Clear trial end on conversion to paid.
+            if (wasTrial) {
+                subscriber.trialEnd = null;
+            }
 
             const subscription = await AppDataSource.getRepository(Subscription).findOneBy({ id: invoice.subscriptionId });
             if (subscription && subscription.interval !== "one_time") {

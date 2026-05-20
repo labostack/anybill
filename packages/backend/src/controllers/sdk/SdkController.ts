@@ -8,6 +8,7 @@
  */
 
 import { Controller, Get, Post, BodyParams, PathParams, QueryParams, UseBefore } from "@tsed/common";
+import { Inject } from "@tsed/di";
 import { NotFound } from "@tsed/exceptions";
 import { Tags, Summary, Description, Returns } from "@tsed/schema";
 import { SdkGuard } from "../../core/SdkGuard";
@@ -20,6 +21,8 @@ import { createCheckoutToken } from "../../core/checkoutToken";
 import { createPortalToken } from "../../core/portalToken";
 import { CreateCheckoutLinkBody } from "../../models/CheckoutLinkModels";
 import { CreatePortalLinkBody } from "../../models/PortalLinkModels";
+import { StartTrialBody } from "../../models/TrialModels";
+import { BillingService } from "../../services/BillingService";
 
 const CHECKOUT_ORIGIN = process.env.CHECKOUT_ORIGIN || "http://localhost:3002";
 
@@ -28,6 +31,8 @@ const CHECKOUT_ORIGIN = process.env.CHECKOUT_ORIGIN || "http://localhost:3002";
 @Tags("SDK")
 
 export class SdkController {
+    @Inject()
+    private readonly billingService!: BillingService;
     /** List all active subscription plans. */
     @Get("/subscriptions")
     @Summary("List active plans")
@@ -146,5 +151,22 @@ export class SdkController {
             url: `${CHECKOUT_ORIGIN}/portal/${token}`,
             expiresAt: expiresAt.toISOString(),
         };
+    }
+
+    /**
+     * Start a free trial.
+     *
+     * Activates a free trial for a user. The subscription plan is auto-resolved
+     * if subscriptionId is omitted (valid if exactly one plan with trialDays > 0 exists).
+     */
+    @Post("/start-trial")
+    @Summary("Start a free trial")
+    @Description("Activates a free trial period for the user on a subscription plan.")
+    @Returns(200)
+    @Returns(400)
+    @Returns(404)
+    @Returns(409)
+    async startTrial(@BodyParams() { uid, subscriptionId }: StartTrialBody) {
+        return this.billingService.startTrial(uid, subscriptionId);
     }
 }

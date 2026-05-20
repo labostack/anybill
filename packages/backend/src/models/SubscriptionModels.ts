@@ -60,6 +60,11 @@ export class CreateSubscriptionBody {
     @Min(0)
     @Default(0)
     squadMaxMembers!: number;
+
+    @Integer()
+    @Min(0)
+    @Default(0)
+    trialDays!: number;
 }
 
 /** Body for `PUT /api/admin/subscriptions/:id` — update a subscription plan. */
@@ -109,4 +114,9 @@ export class UpdateSubscriptionBody {
     @Integer()
     @Min(0)
     squadMaxMembers?: number;
+
+    @Optional()
+    @Integer()
+    @Min(0)
+    trialDays?: number;
 }

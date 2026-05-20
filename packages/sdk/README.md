@@ -26,9 +26,14 @@ const client = new AnybillSDK({
 // List active plans
 const plans = await client.getSubscriptions();
 
-// Check if a user has an active subscription
+// Check if a user has an active subscription (including trial status)
 const subscribers = await client.getSubscriberByUid("user_123");
-const isActive = subscribers.some((s) => s.status === "active");
+const isActive = subscribers.some((s) => s.status === "active" || s.status === "trialing");
+
+// Start a free trial for a user
+const trial = await client.startTrial("user_123");
+// trial.status → "trialing"
+// trial.trialEnd → Date string (ISO 8601)
 
 // Create a secure checkout link
 const link = await client.createCheckoutLink("plan-uuid", "user_123");
@@ -65,14 +70,15 @@ await client.squads.removeMember("squad-id", "friend-uid");
 | `getInvoice(id)`                      | Get an invoice by ID                      |
 | `createCheckoutLink(planId, uid, ttl?)` | Create a secure, time-limited checkout URL |
 | `createPortalLink(uid, ttl?)`           | Create a time-limited subscriber portal URL        |
-| `client.checkAccess(uid, subscriptionId?)` | Check if user has access (direct or squad) |
-| `client.squads.create(subscriberId)` | Create a squad for a subscriber |
-| `client.squads.get(squadId)` | Get squad by ID |
-| `client.squads.getByOwnerUid(uid)` | Find squad by owner's uid |
-| `client.squads.dissolve(squadId)` | Dissolve a squad |
-| `client.squads.addMember(squadId, uid)` | Add member to squad |
-| `client.squads.removeMember(squadId, uid)` | Remove member from squad |
-| `client.squads.getMembers(squadId)` | List active squad members |
+| `checkAccess(uid, subscriptionId?)`    | Check if user has access (direct or squad) |
+| `startTrial(uid, subscriptionId?)`     | Start a free trial for a user (auto-resolves plan if omitted) |
+| `squads.create(subscriberId)`          | Create a squad for a subscriber |
+| `squads.get(squadId)`                  | Get squad by ID |
+| `squads.getByOwnerUid(uid)`            | Find squad by owner's uid |
+| `squads.dissolve(squadId)`             | Dissolve a squad |
+| `squads.addMember(squadId, uid)`       | Add member to squad |
+| `squads.removeMember(squadId, uid)`    | Remove member from squad |
+| `squads.getMembers(squadId)`           | List active squad members |
 
 ## Provider API
 

@@ -21,6 +21,8 @@ export interface Subscription {
     squadEnabled: boolean;
     /** Maximum members per squad (excluding the owner). 0 = unlimited. */
     squadMaxMembers: number;
+    /** Number of free trial days. 0 = no trial. */
+    trialDays: number;
 }
 
 /** Subscriber (a user with an active or past subscription). */
@@ -30,9 +32,10 @@ export interface Subscriber {
     uid: string;
     subscriptionId: string;
     subscription?: Subscription;
-    status: "pending" | "active" | "cancelled" | "expired" | "past_due";
+    status: "pending" | "trialing" | "active" | "cancelled" | "expired" | "past_due";
     currentPeriodStart: string | null;
     currentPeriodEnd: string | null;
+    trialEnd: string | null;
     metadata: Record<string, any> | null;
 }
 

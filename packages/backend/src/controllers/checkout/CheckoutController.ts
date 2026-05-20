@@ -125,6 +125,7 @@ export class CheckoutController {
                 currency: subscription.currency,
                 interval: subscription.interval,
                 intervalCount: subscription.intervalCount,
+                trialDays: subscription.trialDays,
             },
             providers: this.billing.getProviders(),
             checkoutConfig: account?.checkoutConfig || {},

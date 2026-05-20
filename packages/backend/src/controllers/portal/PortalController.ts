@@ -108,6 +108,7 @@ export class PortalController {
         // Rank by status priority.
         const statusPriority: Record<string, number> = {
             active: 0,
+            trialing: 0,
             pending: 1,
             past_due: 2,
             expired: 3,
@@ -151,7 +152,7 @@ export class PortalController {
                 .innerJoinAndSelect("o.subscription", "sub")
                 .where("m.uid = :uid", { uid })
                 .andWhere("m.status = :memberStatus", { memberStatus: "active" })
-                .andWhere("o.status = :ownerStatus", { ownerStatus: "active" })
+                .andWhere("o.status IN (:...ownerStatuses)", { ownerStatuses: ["active", "trialing"] })
                 .getOne();
 
             if (membership) {
@@ -181,6 +182,7 @@ export class PortalController {
                         status: owner.status,
                         currentPeriodStart: owner.currentPeriodStart,
                         currentPeriodEnd: owner.currentPeriodEnd,
+                        trialEnd: owner.trialEnd,
                     },
                     invoices: [],
                     availablePlans: [],
@@ -225,6 +227,7 @@ export class PortalController {
                       status: subscriber.status,
                       currentPeriodStart: subscriber.currentPeriodStart,
                       currentPeriodEnd: subscriber.currentPeriodEnd,
+                      trialEnd: subscriber.trialEnd,
                   }
                 : null,
             invoices: invoices.map((inv) => ({

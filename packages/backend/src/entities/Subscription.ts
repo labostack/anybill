@@ -68,6 +68,10 @@ export class Subscription {
     @Column({ type: "simple-json", nullable: true })
     metadata!: Record<string, any> | null;
 
+    /** Number of free trial days. 0 = no trial available. */
+    @Column({ type: "integer", default: 0 })
+    trialDays!: number;
+
     /** Whether this plan supports squads (group/family subscriptions). */
     @Column({ type: "boolean", default: false })
     squadEnabled!: boolean;

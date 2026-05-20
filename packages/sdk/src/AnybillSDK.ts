@@ -184,6 +184,25 @@ export class AnybillSDK {
     }
 
     /**
+     * Start a free trial for a user.
+     *
+     * Activates a free trial for a user. The subscription plan is auto-resolved
+     * if subscriptionId is omitted (valid if exactly one plan with trialDays > 0 exists).
+     *
+     * @param uid - External user identifier.
+     * @param subscriptionId - Optional plan ID (auto-resolved if omitted).
+     * @returns Trial subscriber data with trialEnd date.
+     */
+    async startTrial(
+        uid: string,
+        subscriptionId?: string,
+    ): Promise<{ subscriberId: string; trialEnd: string; status: "trialing" }> {
+        const body: Record<string, any> = { uid };
+        if (subscriptionId) body.subscriptionId = subscriptionId;
+        return this.post("/start-trial", body);
+    }
+
+    /**
      * Squad management methods.
      *
      * Squads enable group/family subscriptions where an owner pays and

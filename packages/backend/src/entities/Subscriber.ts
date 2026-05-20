@@ -18,12 +18,13 @@ import { Invoice } from "./Invoice";
  * | Status      | Meaning                                         |
  * |-------------|-------------------------------------------------|
  * | `pending`   | Created, awaiting first payment confirmation.    |
+ * | `trialing`  | On a free trial, access granted until trialEnd.  |
  * | `active`    | Currently subscribed, within the billing period. |
  * | `cancelled` | Subscription was explicitly cancelled.           |
  * | `expired`   | Billing period ended without renewal.            |
  * | `past_due`  | Payment failed, grace period may apply.          |
  */
-export type SubscriberStatus = "pending" | "active" | "cancelled" | "expired" | "past_due";
+export type SubscriberStatus = "pending" | "trialing" | "active" | "cancelled" | "expired" | "past_due";
 
 @Entity()
 export class Subscriber {
@@ -57,6 +58,10 @@ export class Subscriber {
     /** Arbitrary metadata (e.g. external user profile data). */
     @Column({ type: "simple-json", nullable: true })
     metadata!: Record<string, any> | null;
+
+    /** End of the free trial period (null if no trial or after conversion to paid). */
+    @Column({ type: "datetime", nullable: true })
+    trialEnd!: Date | null;
 
     /** Payment invoices for this subscriber. */
     @OneToMany(() => Invoice, (i) => i.subscriber)

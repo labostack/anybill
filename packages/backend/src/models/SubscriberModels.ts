@@ -7,7 +7,7 @@
 import { Optional, Enum, Property } from "@tsed/schema";
 import type { SubscriberStatus } from "../entities/Subscriber";
 
-const SUBSCRIBER_STATUSES = ["pending", "active", "cancelled", "expired", "past_due"] as const;
+const SUBSCRIBER_STATUSES = ["pending", "trialing", "active", "cancelled", "expired", "past_due"] as const;
 
 /** Body for `PUT /api/admin/subscribers/:id` — update subscriber status/metadata. */
 export class UpdateSubscriberBody {

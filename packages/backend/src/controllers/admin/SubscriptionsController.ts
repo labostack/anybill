@@ -10,6 +10,7 @@
 import { Controller, Get, Post, Put, Delete, BodyParams, PathParams, UseBefore } from "@tsed/common";
 import { BadRequest, NotFound } from "@tsed/exceptions";
 import { Tags, Summary, Description, Returns } from "@tsed/schema";
+import { In } from "typeorm";
 import { AdminGuard } from "../../core/AdminGuard";
 import { AppDataSource } from "../../core/datasource";
 import { Subscription } from "../../entities/Subscription";
@@ -37,7 +38,7 @@ export class SubscriptionsController {
             .createQueryBuilder("s")
             .select("s.subscriptionId", "subscriptionId")
             .addSelect("COUNT(*)", "count")
-            .where("s.status = :status", { status: "active" })
+            .where("s.status IN (:...statuses)", { statuses: ["active", "trialing"] })
             .groupBy("s.subscriptionId")
             .getRawMany();
 
@@ -72,6 +73,7 @@ export class SubscriptionsController {
 
         if (data.interval === "one_time") {
             data.renewalMode = "manual";
+            data.trialDays = 0;
         }
 
         const sub = this.repo().create(data);
@@ -91,6 +93,7 @@ export class SubscriptionsController {
         const interval = data.interval ?? sub.interval;
         if (interval === "one_time") {
             data.renewalMode = "manual";
+            data.trialDays = 0;
         }
 
         if (data.name !== undefined) sub.name = data.name;
@@ -104,6 +107,7 @@ export class SubscriptionsController {
         if (data.metadata !== undefined) sub.metadata = data.metadata;
         if (data.squadEnabled !== undefined) sub.squadEnabled = data.squadEnabled;
         if (data.squadMaxMembers !== undefined) sub.squadMaxMembers = data.squadMaxMembers;
+        if (data.trialDays !== undefined) sub.trialDays = data.trialDays;
 
         return this.repo().save(sub);
     }
@@ -127,11 +131,11 @@ export class SubscriptionsController {
         const invoiceRepo = AppDataSource.getRepository(Invoice);
 
         const activeCount = await subscriberRepo.count({
-            where: { subscriptionId: id, status: "active" },
+            where: { subscriptionId: id, status: In(["active", "trialing"]) },
         });
         if (activeCount > 0) {
             throw new BadRequest(
-                `Cannot delete: ${activeCount} active subscriber(s). Cancel their subscriptions first.`,
+                `Cannot delete: ${activeCount} active/trialing subscriber(s). Cancel their subscriptions first.`,
             );
         }
 

@@ -52,7 +52,7 @@ export function Subscriptions() {
     const [showModal, setShowModal] = createSignal(false);
     const [editing, setEditing] = createSignal<any>(null);
     const [collapsed, setCollapsed] = createSignal<Record<string, boolean>>({});
-    const [form, setForm] = createSignal({ name: "", description: "", displayAmount: "", currency: "USD", interval: "month", intervalCount: "1", renewalMode: "manual", squadEnabled: false, squadMaxMembers: "0" });
+    const [form, setForm] = createSignal({ name: "", description: "", displayAmount: "", currency: "USD", interval: "month", intervalCount: "1", renewalMode: "manual", squadEnabled: false, squadMaxMembers: "0", trialDays: "0" });
     const [formError, setFormError] = createSignal("");
     const [saving, setSaving] = createSignal(false);
 
@@ -87,7 +87,7 @@ export function Subscriptions() {
 
     const openCreate = () => {
         setEditing(null);
-        setForm({ name: "", description: "", displayAmount: "", currency: "USD", interval: "month", intervalCount: "1", renewalMode: "manual", squadEnabled: false, squadMaxMembers: "0" });
+        setForm({ name: "", description: "", displayAmount: "", currency: "USD", interval: "month", intervalCount: "1", renewalMode: "manual", squadEnabled: false, squadMaxMembers: "0", trialDays: "0" });
         setFormError("");
         setShowModal(true);
     };
@@ -104,6 +104,7 @@ export function Subscriptions() {
             renewalMode: sub.renewalMode || "manual",
             squadEnabled: sub.squadEnabled || false,
             squadMaxMembers: String(sub.squadMaxMembers || 0),
+            trialDays: String(sub.trialDays || 0),
         });
         setFormError("");
         setShowModal(true);
@@ -124,6 +125,7 @@ export function Subscriptions() {
                 renewalMode: form().interval === "one_time" ? "manual" : form().renewalMode,
                 squadEnabled: form().squadEnabled,
                 squadMaxMembers: Number(form().squadMaxMembers),
+                trialDays: form().interval === "one_time" ? 0 : Number(form().trialDays || 0),
             };
             if (editing()) {
                 await api.put(`/subscriptions/${editing().id}`, body);
@@ -254,6 +256,11 @@ export function Subscriptions() {
                                                             <span>{sub.activeSubscribers || 0}</span>
                                                         </div>
                                                         <div class="plan-variant-status">
+                                                            <Show when={sub.trialDays > 0}>
+                                                                <span class="badge badge-info" title={`${sub.trialDays}-day free trial available`}>
+                                                                    Trial · {sub.trialDays}d
+                                                                </span>
+                                                            </Show>
                                                             <Show when={sub.squadEnabled}>
                                                                 <span class="badge badge-info" title="Group/family subscription enabled">
                                                                     Squad · {sub.squadMaxMembers ? `max ${sub.squadMaxMembers}` : '∞'}
@@ -362,6 +369,20 @@ export function Subscriptions() {
                                 </div>
                             </Show>
                         </div>
+
+                        <Show when={form().interval !== "one_time"}>
+                            <div class="form-group">
+                                <label>Trial Period (Days)</label>
+                                <input
+                                    type="number"
+                                    min="0"
+                                    value={form().trialDays}
+                                    onInput={(e) => setForm({ ...form(), trialDays: e.target.value })}
+                                    placeholder="0"
+                                />
+                                <div class="form-hint">0 = no trial. Programmatic activation via SDK.</div>
+                            </div>
+                        </Show>
 
                         <div class="form-group">
                             <label>Renewal Mode</label>

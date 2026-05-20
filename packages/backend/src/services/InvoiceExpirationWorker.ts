@@ -15,10 +15,11 @@
 
 import { Injectable, OnInit, OnDestroy, Inject } from "@tsed/di";
 import { Logger } from "@tsed/logger";
-import { LessThanOrEqual } from "typeorm";
+import { LessThanOrEqual, In } from "typeorm";
 import { AppDataSource } from "../core/datasource";
 import { Account } from "../entities/Account";
 import { Invoice } from "../entities/Invoice";
+import { Subscriber } from "../entities/Subscriber";
 import { BillingService } from "./BillingService";
 import { OutgoingWebhookService } from "./OutgoingWebhookService";
 
@@ -37,8 +38,11 @@ export class InvoiceExpirationWorker implements OnInit, OnDestroy {
     ) {}
 
     async $onInit(): Promise<void> {
-        this.timer = setInterval(() => this.processExpiredInvoices(), POLL_MS);
-        this.logger.info(`Invoice expiration worker started (poll every ${POLL_MS}ms)`);
+        this.timer = setInterval(async () => {
+            await this.processExpiredInvoices();
+            await this.processExpiredTrials();
+        }, POLL_MS);
+        this.logger.info(`Invoice and trial expiration worker started (poll every ${POLL_MS}ms)`);
     }
 
     $onDestroy(): void {
@@ -102,6 +106,40 @@ export class InvoiceExpirationWorker implements OnInit, OnDestroy {
             this.logger.info(`Auto-expired ${expired.length} stale pending invoice(s)`);
         } catch (err: any) {
             this.logger.error(`Invoice expiration worker error: ${err.message}`);
+        }
+    }
+
+    private async processExpiredTrials(): Promise<void> {
+        try {
+            const subscriberRepo = AppDataSource.getRepository(Subscriber);
+            const now = new Date();
+
+            const expiredTrials = await subscriberRepo.find({
+                where: {
+                    status: "trialing",
+                    trialEnd: LessThanOrEqual(now),
+                },
+            });
+
+            if (expiredTrials.length === 0) return;
+
+            for (const subscriber of expiredTrials) {
+                subscriber.status = "expired";
+                await subscriberRepo.save(subscriber);
+
+                await this.outgoingWebhooks.dispatch("trial.expired", {
+                    subscriberId: subscriber.id,
+                    subscriptionId: subscriber.subscriptionId,
+                    uid: subscriber.uid,
+                    trialEnd: subscriber.trialEnd?.toISOString(),
+                });
+
+                this.logger.info(`Trial expired for subscriber ${subscriber.id} (uid: ${subscriber.uid})`);
+            }
+
+            this.logger.info(`Auto-expired ${expiredTrials.length} trialing subscriber(s)`);
+        } catch (err: any) {
+            this.logger.error(`Trial expiration check error: ${err.message}`);
         }
     }
 }
