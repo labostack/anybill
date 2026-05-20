@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+
+- **Plan metadata editor** — Key-value editor in the admin plan form for attaching arbitrary custom properties to subscription plans (e.g. `max_proxies`, `features`). Values are stored as JSON in `Subscription.metadata` and returned via all relevant API endpoints. Numeric strings are automatically cast to numbers.
+
 ## [0.2.1] — 2025-05-20
 
 ### Added
