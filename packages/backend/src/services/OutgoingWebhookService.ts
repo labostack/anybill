@@ -20,7 +20,8 @@ export type WebhookEventType =
     | "payment.refunded"
     | "payment.cancelled"
     | "subscription.renewed"
-    | "subscription.expired";
+    | "subscription.expired"
+    | "subscription.cancelled";
 
 const MAX_RETRIES = Number(process.env.WEBHOOK_MAX_RETRIES) || 5;
 const RETRY_DELAYS_MS = (process.env.WEBHOOK_RETRY_DELAYS_MS || "10000,60000,300000,1800000,3600000")

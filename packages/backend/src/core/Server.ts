@@ -50,6 +50,9 @@ import { CheckoutLinksController } from "../controllers/admin/CheckoutLinksContr
 // ─── Checkout Controllers ───────────────────────────────────────────
 import { CheckoutController } from "../controllers/checkout/CheckoutController";
 
+// ─── Portal Controllers ─────────────────────────────────────────────
+import { PortalController } from "../controllers/portal/PortalController";
+
 // ─── Webhook Controllers ────────────────────────────────────────────
 import { WebhookController } from "../controllers/webhook/WebhookController";
 
@@ -78,6 +81,7 @@ import { HealthController } from "../controllers/HealthController";
             CheckoutLinksController,
         ],
         "/api/checkout": [CheckoutController],
+        "/api/portal": [PortalController],
         "/api/webhook": [WebhookController],
         "/api/sdk": [SdkController],
         "/": [HealthController],

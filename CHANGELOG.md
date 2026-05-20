@@ -4,6 +4,23 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.2.1] — 2025-05-20
+
+### Added
+
+- **Client Portal** — Subscriber self-service dashboard for managing subscriptions (cancel, renew, change plan)
+- **Portal API** — 5 new endpoints (`/api/portal`) with AES-256-GCM encrypted token authentication
+- **Portal Links** — Generate time-limited portal URLs via admin dashboard or SDK
+- **SDK method** — `createPortalLink(uid, ttl?)` for creating subscriber portal URLs
+- **Checkout redirect flow** — Plan changes and renewals redirect to the standard checkout page for payment
+- **New webhook event** — `subscription.cancelled` dispatched when a subscription is cancelled via portal
+
+### Changed
+
+- Secure tokens (checkout & portal) now use AES-256-GCM encryption instead of HMAC-JWT
+- Admin "Payment Links" page redesigned as unified "Links" page with checkout and portal tabs
+- Portal `change` and `renew` endpoints return checkout URLs instead of handling payment directly
+
 ## [0.1.0] — 2025-05-20
 
 ### Added

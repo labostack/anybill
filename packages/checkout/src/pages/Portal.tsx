@@ -1,0 +1,554 @@
+/**
+ * Portal page — subscriber self-service dashboard.
+ *
+ * Uses the same two-column Stripe-style layout as SecureCheckout.
+ * Left column: subscription info + payment history.
+ * Right column: actions (cancel, change plan, renew).
+ *
+ * For payments (change/renew), the portal redirects to the standard
+ * checkout page — provider selection happens there, not here.
+ */
+import { createSignal, onMount, For, Show } from "solid-js";
+import { useParams } from "@solidjs/router";
+import {
+    AlertTriangle,
+    CheckCircle,
+    XCircle,
+    Clock,
+    CreditCard,
+    ArrowRightLeft,
+    RefreshCw,
+    Lock,
+    X,
+} from "lucide-solid";
+
+const API = "/api/portal";
+
+// ─── Types ──────────────────────────────────────────────────────────
+
+interface SubscriptionInfo {
+    id: string;
+    name: string;
+    description: string | null;
+    amount: number;
+    currency: string;
+    interval: string;
+    intervalCount: number;
+    renewalMode: string;
+}
+
+interface SubscriberInfo {
+    id: string;
+    subscription: SubscriptionInfo;
+    status: string;
+    currentPeriodStart: string | null;
+    currentPeriodEnd: string | null;
+}
+
+interface InvoiceInfo {
+    id: string;
+    amount: number;
+    currency: string;
+    status: string;
+    provider: string;
+    paidAt: string | null;
+    createdAt: string;
+}
+
+interface PlanInfo {
+    id: string;
+    name: string;
+    description: string | null;
+    amount: number;
+    currency: string;
+    interval: string;
+    intervalCount: number;
+}
+
+interface PortalData {
+    uid: string;
+    subscriber: SubscriberInfo | null;
+    invoices: InvoiceInfo[];
+    availablePlans: PlanInfo[];
+    checkoutConfig: Record<string, any>;
+}
+
+// ─── Helpers ────────────────────────────────────────────────────────
+
+function formatPrice(amount: number, currency: string) {
+    return new Intl.NumberFormat("en-US", { style: "currency", currency }).format(amount / 100);
+}
+
+function intervalLabel(interval: string, count: number) {
+    if (interval === "one_time") return "one-time";
+    const unit = count > 1 ? `${count} ${interval}s` : interval;
+    return `per ${unit}`;
+}
+
+function formatDate(dateStr: string | null) {
+    if (!dateStr) return "—";
+    return new Date(dateStr).toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+    });
+}
+
+function statusBadgeClass(status: string) {
+    switch (status) {
+        case "active": return "portal-badge portal-badge-active";
+        case "cancelled": return "portal-badge portal-badge-cancelled";
+        case "expired": case "past_due": return "portal-badge portal-badge-warning";
+        case "paid": return "portal-badge portal-badge-active";
+        case "failed": return "portal-badge portal-badge-cancelled";
+        case "refunded": return "portal-badge portal-badge-warning";
+        case "pending": return "portal-badge portal-badge-pending";
+        default: return "portal-badge";
+    }
+}
+
+// ─── Component ──────────────────────────────────────────────────────
+
+export function PortalPage() {
+    const params = useParams<{ token: string }>();
+
+    // State
+    const [data, setData] = createSignal<PortalData | null>(null);
+    const [tokenError, setTokenError] = createSignal("");
+    const [loading, setLoading] = createSignal(true);
+    const [actionLoading, setActionLoading] = createSignal(false);
+    const [actionError, setActionError] = createSignal("");
+    const [actionSuccess, setActionSuccess] = createSignal("");
+
+    // Modal state
+    const [showCancelModal, setShowCancelModal] = createSignal(false);
+    const [showChangeModal, setShowChangeModal] = createSignal(false);
+    const [showRenewModal, setShowRenewModal] = createSignal(false);
+    const [selectedPlan, setSelectedPlan] = createSignal("");
+
+    // ─── Load Data ──────────────────────────────────────────────
+
+    onMount(async () => {
+        try {
+            const res = await fetch(`${API}/resolve/${params.token}`);
+            if (!res.ok) {
+                const err = await res.json().catch(() => null);
+                throw new Error(err?.message || "This portal link has expired or is invalid");
+            }
+            setData(await res.json());
+        } catch (err: any) {
+            setTokenError(err.message);
+        } finally {
+            setLoading(false);
+        }
+    });
+
+    // ─── Actions ────────────────────────────────────────────────
+
+    const cancelSubscription = async () => {
+        const d = data();
+        if (!d?.subscriber) return;
+        setActionLoading(true);
+        setActionError("");
+        try {
+            const res = await fetch(`${API}/cancel`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ token: params.token, subscriberId: d.subscriber.id }),
+            });
+            if (!res.ok) { const err = await res.json(); throw new Error(err.message); }
+            setData({ ...d, subscriber: { ...d.subscriber, status: "cancelled" } });
+            setShowCancelModal(false);
+            setActionSuccess("Your subscription has been cancelled.");
+            setTimeout(() => setActionSuccess(""), 5000);
+        } catch (err: any) { setActionError(err.message); }
+        finally { setActionLoading(false); }
+    };
+
+    const changePlan = async () => {
+        const d = data();
+        if (!d?.subscriber || !selectedPlan()) return;
+        setActionLoading(true);
+        setActionError("");
+        try {
+            const res = await fetch(`${API}/change`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    token: params.token,
+                    subscriberId: d.subscriber.id,
+                    newSubscriptionId: selectedPlan(),
+                }),
+            });
+            if (!res.ok) { const err = await res.json(); throw new Error(err.message); }
+            const { checkoutUrl } = await res.json();
+            window.location.href = checkoutUrl;
+        } catch (err: any) {
+            setActionError(err.message);
+            setActionLoading(false);
+        }
+    };
+
+    const renewSubscription = async () => {
+        const d = data();
+        if (!d?.subscriber) return;
+        setActionLoading(true);
+        setActionError("");
+        try {
+            const res = await fetch(`${API}/renew`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ token: params.token, subscriberId: d.subscriber.id }),
+            });
+            if (!res.ok) { const err = await res.json(); throw new Error(err.message); }
+            const { checkoutUrl } = await res.json();
+            window.location.href = checkoutUrl;
+        } catch (err: any) {
+            setActionError(err.message);
+            setActionLoading(false);
+        }
+    };
+
+    // ─── Computed ────────────────────────────────────────────────
+
+    const canCancel = () => {
+        const sub = data()?.subscriber;
+        return sub ? sub.status === "active" && sub.subscription.interval !== "one_time" : false;
+    };
+
+    const canRenew = () => {
+        const sub = data()?.subscriber;
+        return sub ? ["expired", "past_due", "cancelled"].includes(sub.status) && sub.subscription.interval !== "one_time" : false;
+    };
+
+    const canChange = () => {
+        const sub = data()?.subscriber;
+        return sub ? sub.subscription.interval !== "one_time" : false;
+    };
+
+    const changePlans = () => {
+        const d = data();
+        if (!d?.subscriber) return [];
+        return d.availablePlans.filter((p) => p.id !== d.subscriber!.subscription.id);
+    };
+
+    return (
+        <>
+            {/* Token error */}
+            <Show when={tokenError()}>
+                <div class="confirm-container">
+                    <div class="confirm-card">
+                        <div class="token-error">
+                            <AlertTriangle size={32} />
+                            <div class="token-error-title">Link expired</div>
+                            <div class="token-error-message">{tokenError()}</div>
+                        </div>
+                    </div>
+                </div>
+            </Show>
+
+            {/* Loading */}
+            <Show when={loading() && !tokenError()}>
+                <div class="confirm-container"><div class="spinner" /></div>
+            </Show>
+
+            {/* Portal content — two-column Stripe layout */}
+            <Show when={data()}>
+                <div class="checkout-layout">
+                    {/* ─── Left Column: Subscription Info ─── */}
+                    <div class="checkout-left">
+                        <div class="checkout-left-inner">
+                            {/* Brand */}
+                            <div class="checkout-brand">
+                                <Show when={data()!.checkoutConfig?.logoUrl}>
+                                    <div class="checkout-brand-icon">
+                                        <img src={data()!.checkoutConfig.logoUrl} alt="Logo" />
+                                    </div>
+                                </Show>
+                                <span class="checkout-brand-name">
+                                    {data()!.checkoutConfig?.brandName || "Billing Portal"}
+                                </span>
+                            </div>
+
+                            <Show when={data()!.subscriber} fallback={
+                                <div class="portal-empty-left">
+                                    <CreditCard size={36} />
+                                    <div class="portal-empty-title">No active subscription</div>
+                                    <div class="portal-empty-desc">
+                                        There is no subscription associated with this account.
+                                    </div>
+                                </div>
+                            }>
+                                {(() => {
+                                    const sub = data()!.subscriber!;
+                                    return (
+                                        <>
+                                            <div class="product-name">{sub.subscription.name}</div>
+                                            <div class="product-price">
+                                                {formatPrice(sub.subscription.amount, sub.subscription.currency)}
+                                            </div>
+                                            <div class="product-interval">
+                                                {intervalLabel(sub.subscription.interval, sub.subscription.intervalCount)}
+                                            </div>
+
+                                            {/* Status & period */}
+                                            <div class="portal-status-bar">
+                                                <span class={statusBadgeClass(sub.status)}>{sub.status}</span>
+                                                <Show when={sub.subscription.interval !== "one_time" && sub.currentPeriodEnd}>
+                                                    <span class="portal-period-text">
+                                                        <Clock size={13} />
+                                                        {sub.status === "active"
+                                                            ? `${formatDate(sub.currentPeriodStart)} – ${formatDate(sub.currentPeriodEnd)}`
+                                                            : sub.status === "cancelled"
+                                                            ? `until ${formatDate(sub.currentPeriodEnd)}`
+                                                            : `expired ${formatDate(sub.currentPeriodEnd)}`}
+                                                    </span>
+                                                </Show>
+                                            </div>
+
+                                            {/* Invoice History */}
+                                            <Show when={data()!.invoices.length > 0}>
+                                                <div class="order-summary">
+                                                    <div class="portal-invoices-title">Payment History</div>
+                                                    <For each={data()!.invoices.slice(0, 10)}>
+                                                        {(inv) => (
+                                                            <div class="order-row">
+                                                                <div>
+                                                                    <div class="order-item-name">
+                                                                        {formatDate(inv.paidAt || inv.createdAt)}
+                                                                    </div>
+                                                                </div>
+                                                                <div style={{ display: "flex", "align-items": "center", gap: "10px" }}>
+                                                                    <span class={statusBadgeClass(inv.status)}>
+                                                                        {inv.status}
+                                                                    </span>
+                                                                    <div class="order-item-price">
+                                                                        {formatPrice(inv.amount, inv.currency)}
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        )}
+                                                    </For>
+                                                </div>
+                                            </Show>
+                                        </>
+                                    );
+                                })()}
+                            </Show>
+
+                            {/* Powered by */}
+                            <Show when={!data()!.checkoutConfig?.hidePoweredBy}>
+                                <div class="powered-by">
+                                    <Lock size={12} />
+                                    Powered by{" "}
+                                    <a href="https://github.com/dortanes/anybill" target="_blank" rel="noopener noreferrer">anybill</a>
+                                </div>
+                            </Show>
+                        </div>
+                    </div>
+
+                    {/* ─── Right Column: Actions ─── */}
+                    <div class="checkout-right">
+                        <div class="checkout-right-inner">
+                            <div class="payment-section-title">Manage Subscription</div>
+
+                            {/* Success toast */}
+                            <Show when={actionSuccess()}>
+                                <div class="portal-success">
+                                    <CheckCircle size={16} />
+                                    <span>{actionSuccess()}</span>
+                                </div>
+                            </Show>
+
+                            {/* Error toast */}
+                            <Show when={actionError()}>
+                                <div class="error-msg">{actionError()}</div>
+                            </Show>
+
+                            <Show when={data()!.subscriber}>
+                                {(() => {
+                                    const sub = data()!.subscriber!;
+                                    const isOneTime = sub.subscription.interval === "one_time";
+
+                                    return (
+                                        <div class="portal-action-list">
+                                            {/* Active recurring: can change plan or cancel */}
+                                            <Show when={canChange() && changePlans().length > 0}>
+                                                <button
+                                                    class="portal-action-card"
+                                                    onClick={() => { setSelectedPlan(""); setActionError(""); setShowChangeModal(true); }}
+                                                >
+                                                    <div class="portal-action-icon">
+                                                        <ArrowRightLeft size={20} />
+                                                    </div>
+                                                    <div class="portal-action-content">
+                                                        <div class="portal-action-title">Change Plan</div>
+                                                        <div class="portal-action-desc">Switch to a different subscription plan</div>
+                                                    </div>
+                                                </button>
+                                            </Show>
+
+                                            <Show when={canRenew()}>
+                                                <button
+                                                    class="portal-action-card portal-action-accent"
+                                                    onClick={() => { setActionError(""); setShowRenewModal(true); }}
+                                                >
+                                                    <div class="portal-action-icon">
+                                                        <RefreshCw size={20} />
+                                                    </div>
+                                                    <div class="portal-action-content">
+                                                        <div class="portal-action-title">Renew Subscription</div>
+                                                        <div class="portal-action-desc">
+                                                            Reactivate your {sub.subscription.name} plan
+                                                        </div>
+                                                    </div>
+                                                </button>
+                                            </Show>
+
+                                            <Show when={canCancel()}>
+                                                <button
+                                                    class="portal-action-card portal-action-danger"
+                                                    onClick={() => { setActionError(""); setShowCancelModal(true); }}
+                                                >
+                                                    <div class="portal-action-icon">
+                                                        <XCircle size={20} />
+                                                    </div>
+                                                    <div class="portal-action-content">
+                                                        <div class="portal-action-title">Cancel Subscription</div>
+                                                        <div class="portal-action-desc">Your access continues until the period ends</div>
+                                                    </div>
+                                                </button>
+                                            </Show>
+
+                                            {/* One-time: no actions */}
+                                            <Show when={isOneTime}>
+                                                <div class="portal-no-actions">
+                                                    This is a one-time purchase. No actions available.
+                                                </div>
+                                            </Show>
+
+                                            {/* Cancelled + no change plans */}
+                                            <Show when={sub.status === "cancelled" && !canRenew() && changePlans().length === 0}>
+                                                <div class="portal-no-actions">
+                                                    Your subscription has been cancelled.
+                                                </div>
+                                            </Show>
+                                        </div>
+                                    );
+                                })()}
+                            </Show>
+
+                            <Show when={!data()!.subscriber}>
+                                <div class="portal-no-actions">
+                                    No subscription to manage.
+                                </div>
+                            </Show>
+                        </div>
+                    </div>
+                </div>
+            </Show>
+
+            {/* ─── Cancel Modal ────────────────────────────────── */}
+            <Show when={showCancelModal()}>
+                <div class="portal-overlay" onClick={() => setShowCancelModal(false)}>
+                    <div class="portal-modal" onClick={(e) => e.stopPropagation()}>
+                        <button class="portal-modal-close" onClick={() => setShowCancelModal(false)}>
+                            <X size={18} />
+                        </button>
+                        <div class="portal-modal-icon portal-modal-icon-danger">
+                            <XCircle size={28} />
+                        </div>
+                        <div class="portal-modal-title">Cancel Subscription</div>
+                        <div class="portal-modal-desc">
+                            Are you sure? You'll lose access at the end of your current billing period.
+                        </div>
+                        <Show when={actionError()}><div class="error-msg">{actionError()}</div></Show>
+                        <div class="portal-modal-actions">
+                            <button class="portal-btn portal-btn-ghost" onClick={() => setShowCancelModal(false)} disabled={actionLoading()}>
+                                Keep Subscription
+                            </button>
+                            <button class="portal-btn portal-btn-danger" onClick={cancelSubscription} disabled={actionLoading()}>
+                                {actionLoading() ? "Cancelling..." : "Yes, Cancel"}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </Show>
+
+            {/* ─── Change Plan Modal ───────────────────────────── */}
+            <Show when={showChangeModal()}>
+                <div class="portal-overlay" onClick={() => setShowChangeModal(false)}>
+                    <div class="portal-modal portal-modal-lg" onClick={(e) => e.stopPropagation()}>
+                        <button class="portal-modal-close" onClick={() => setShowChangeModal(false)}>
+                            <X size={18} />
+                        </button>
+                        <div class="portal-modal-title">Change Plan</div>
+                        <div class="portal-modal-desc">
+                            Select a new plan. You'll be redirected to complete payment.
+                        </div>
+
+                        <div class="portal-plan-list">
+                            <For each={changePlans()}>
+                                {(plan) => (
+                                    <label
+                                        class={`portal-plan-option ${selectedPlan() === plan.id ? "selected" : ""}`}
+                                        onClick={() => setSelectedPlan(plan.id)}
+                                    >
+                                        <input type="radio" name="plan" checked={selectedPlan() === plan.id} />
+                                        <div class="provider-radio" />
+                                        <div class="portal-plan-details">
+                                            <div class="portal-plan-name">{plan.name}</div>
+                                            <div class="portal-plan-price">
+                                                {formatPrice(plan.amount, plan.currency)}
+                                                <span class="portal-plan-interval"> / {intervalLabel(plan.interval, plan.intervalCount)}</span>
+                                            </div>
+                                        </div>
+                                    </label>
+                                )}
+                            </For>
+                        </div>
+
+                        <Show when={actionError()}><div class="error-msg">{actionError()}</div></Show>
+                        <div class="portal-modal-actions">
+                            <button class="portal-btn portal-btn-ghost" onClick={() => setShowChangeModal(false)} disabled={actionLoading()}>
+                                Cancel
+                            </button>
+                            <button class="portal-btn portal-btn-primary" onClick={changePlan} disabled={actionLoading() || !selectedPlan()}>
+                                {actionLoading() ? "Processing..." : "Continue to Payment"}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </Show>
+
+            {/* ─── Renew Modal ─────────────────────────────────── */}
+            <Show when={showRenewModal()}>
+                <div class="portal-overlay" onClick={() => setShowRenewModal(false)}>
+                    <div class="portal-modal" onClick={(e) => e.stopPropagation()}>
+                        <button class="portal-modal-close" onClick={() => setShowRenewModal(false)}>
+                            <X size={18} />
+                        </button>
+                        <div class="portal-modal-icon portal-modal-icon-accent">
+                            <RefreshCw size={28} />
+                        </div>
+                        <div class="portal-modal-title">Renew Subscription</div>
+                        <div class="portal-modal-desc">
+                            Renew your <strong>{data()!.subscriber!.subscription.name}</strong> plan for{" "}
+                            {formatPrice(data()!.subscriber!.subscription.amount, data()!.subscriber!.subscription.currency)}.
+                            You'll be redirected to complete payment.
+                        </div>
+                        <Show when={actionError()}><div class="error-msg">{actionError()}</div></Show>
+                        <div class="portal-modal-actions">
+                            <button class="portal-btn portal-btn-ghost" onClick={() => setShowRenewModal(false)} disabled={actionLoading()}>
+                                Cancel
+                            </button>
+                            <button class="portal-btn portal-btn-primary" onClick={renewSubscription} disabled={actionLoading()}>
+                                {actionLoading() ? "Processing..." : "Continue to Payment"}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </Show>
+        </>
+    );
+}

@@ -591,3 +591,487 @@ body {
         font-size: 28px;
     }
 }
+
+/* ═══════════════════════════════════════════════════
+   Portal — Client Area Styles
+   Uses the same checkout-layout (two-column Stripe style)
+   ═══════════════════════════════════════════════════ */
+
+/* ─── Status Bar ───────────────────────────────────── */
+
+.portal-status-bar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 20px;
+    padding-top: 20px;
+    border-top: 1px solid var(--border);
+    flex-wrap: wrap;
+}
+
+.portal-period-text {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    color: var(--text-muted);
+}
+
+.portal-period-text svg {
+    flex-shrink: 0;
+}
+
+/* ─── Portal Badges ────────────────────────────────── */
+
+.portal-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 3px 10px;
+    border-radius: 100px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    white-space: nowrap;
+}
+
+.portal-badge-active {
+    background: var(--success-bg);
+    color: var(--success);
+}
+
+.portal-badge-cancelled {
+    background: var(--danger-bg);
+    color: var(--danger);
+}
+
+.portal-badge-warning {
+    background: rgba(246, 197, 99, 0.12);
+    color: var(--warning);
+}
+
+.portal-badge-pending {
+    background: rgba(99, 179, 237, 0.12);
+    color: var(--accent);
+}
+
+/* ─── Invoice Title (left column) ──────────────────── */
+
+.portal-invoices-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 4px;
+}
+
+/* Remove double border — portal-status-bar already has border-top */
+.portal-status-bar + .order-summary {
+    border-top: none;
+    padding-top: 0;
+    margin-top: 24px;
+}
+
+/* ─── Action Cards (right column) ──────────────────── */
+
+.portal-action-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.portal-action-card {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    width: 100%;
+    padding: 18px 20px;
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    cursor: pointer;
+    text-align: left;
+    font-family: var(--font);
+    transition: all 0.2s var(--ease);
+}
+
+.portal-action-card:hover {
+    border-color: var(--border-hover);
+    background: rgba(255, 255, 255, 0.02);
+    transform: translateY(-1px);
+}
+
+.portal-action-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    background: rgba(255, 255, 255, 0.04);
+    color: var(--text-secondary);
+    transition: all 0.2s var(--ease);
+}
+
+.portal-action-card:hover .portal-action-icon {
+    background: rgba(255, 255, 255, 0.06);
+    color: var(--text);
+}
+
+.portal-action-content {
+    flex: 1;
+    min-width: 0;
+}
+
+.portal-action-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text);
+    letter-spacing: -0.2px;
+    margin-bottom: 2px;
+}
+
+.portal-action-desc {
+    font-size: 13px;
+    color: var(--text-muted);
+}
+
+/* Accent action card (renew) */
+.portal-action-accent .portal-action-icon {
+    background: rgba(99, 179, 237, 0.1);
+    color: var(--accent);
+}
+
+.portal-action-accent:hover {
+    border-color: rgba(99, 179, 237, 0.25);
+}
+
+.portal-action-accent:hover .portal-action-icon {
+    background: rgba(99, 179, 237, 0.15);
+    color: var(--accent-hover);
+}
+
+/* Danger action card (cancel) */
+.portal-action-danger .portal-action-icon {
+    background: var(--danger-bg);
+    color: var(--danger);
+}
+
+.portal-action-danger:hover {
+    border-color: rgba(252, 129, 129, 0.25);
+}
+
+.portal-action-danger:hover .portal-action-icon {
+    background: rgba(252, 129, 129, 0.18);
+}
+
+/* No actions state */
+.portal-no-actions {
+    font-size: 14px;
+    color: var(--text-muted);
+    padding: 20px;
+    text-align: center;
+    border: 1px dashed var(--border);
+    border-radius: var(--radius);
+}
+
+/* ─── Empty State (left column) ────────────────────── */
+
+.portal-empty-left {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-top: 24px;
+    color: var(--text-muted);
+}
+
+.portal-empty-left svg {
+    opacity: 0.4;
+}
+
+.portal-empty-title {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--text);
+    letter-spacing: -0.5px;
+}
+
+.portal-empty-desc {
+    font-size: 14px;
+    color: var(--text-secondary);
+    line-height: 1.5;
+}
+
+/* ─── Success Message ──────────────────────────────── */
+
+.portal-success {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: var(--success-bg);
+    border: 1px solid rgba(104, 211, 145, 0.2);
+    color: var(--success);
+    padding: 12px 16px;
+    border-radius: var(--radius-sm);
+    font-size: 13px;
+    font-weight: 500;
+    margin-bottom: 20px;
+    animation: confirmIn 0.3s var(--ease);
+}
+
+.portal-success svg {
+    flex-shrink: 0;
+}
+
+/* ─── Modal Overlay ────────────────────────────────── */
+
+.portal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    z-index: 1000;
+    animation: overlayIn 0.2s var(--ease);
+}
+
+@keyframes overlayIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.portal-modal {
+    background: var(--bg-right);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 32px;
+    width: 100%;
+    max-width: 420px;
+    position: relative;
+    animation: confirmIn 0.3s var(--ease);
+}
+
+.portal-modal-lg {
+    max-width: 500px;
+}
+
+.portal-modal-close {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 4px;
+    border-radius: var(--radius-sm);
+    transition: all 0.15s var(--ease);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.portal-modal-close:hover {
+    color: var(--text);
+    background: rgba(255, 255, 255, 0.06);
+}
+
+.portal-modal-icon {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 16px;
+}
+
+.portal-modal-icon-danger {
+    background: var(--danger-bg);
+    color: var(--danger);
+}
+
+.portal-modal-icon-accent {
+    background: rgba(99, 179, 237, 0.12);
+    color: var(--accent);
+}
+
+.portal-modal-title {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--text);
+    text-align: center;
+    margin-bottom: 8px;
+    letter-spacing: -0.3px;
+}
+
+.portal-modal-desc {
+    font-size: 14px;
+    color: var(--text-secondary);
+    text-align: center;
+    line-height: 1.6;
+    margin-bottom: 24px;
+}
+
+.portal-modal-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+}
+
+.portal-modal-actions .portal-btn {
+    flex: 1;
+    justify-content: center;
+}
+
+/* ─── Portal Buttons ───────────────────────────────── */
+
+.portal-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 18px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    font-size: 13px;
+    font-weight: 600;
+    font-family: var(--font);
+    cursor: pointer;
+    transition: all 0.2s var(--ease);
+    white-space: nowrap;
+}
+
+.portal-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.portal-btn-primary {
+    background: var(--accent);
+    color: #0c0e14;
+    border-color: var(--accent);
+}
+
+.portal-btn-primary:hover:not(:disabled) {
+    background: var(--accent-hover);
+    border-color: var(--accent-hover);
+    box-shadow: 0 0 20px var(--accent-glow);
+    transform: translateY(-1px);
+}
+
+.portal-btn-danger {
+    background: transparent;
+    color: var(--danger);
+    border-color: rgba(252, 129, 129, 0.25);
+}
+
+.portal-btn-danger:hover:not(:disabled) {
+    background: var(--danger-bg);
+    border-color: rgba(252, 129, 129, 0.4);
+}
+
+.portal-btn-ghost {
+    background: transparent;
+    color: var(--text-secondary);
+    border-color: var(--border);
+}
+
+.portal-btn-ghost:hover:not(:disabled) {
+    background: var(--bg-elevated);
+    color: var(--text);
+}
+
+/* ─── Plan Selection (Change Modal) ────────────────── */
+
+.portal-plan-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 20px;
+}
+
+.portal-plan-option {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 16px 18px;
+    background: var(--bg-card);
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius);
+    cursor: pointer;
+    transition: all 0.2s var(--ease);
+}
+
+.portal-plan-option:hover {
+    border-color: var(--border-hover);
+    background: var(--bg-elevated);
+}
+
+.portal-plan-option.selected {
+    border-color: var(--accent);
+    background: rgba(99, 179, 237, 0.06);
+    box-shadow: 0 0 0 3px var(--accent-glow);
+}
+
+.portal-plan-option.selected .provider-radio {
+    border-color: var(--accent);
+}
+
+.portal-plan-option.selected .provider-radio::after {
+    transform: scale(1);
+}
+
+.portal-plan-option input[type="radio"] {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.portal-plan-details {
+    flex: 1;
+}
+
+.portal-plan-name {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 2px;
+}
+
+.portal-plan-price {
+    font-size: 13px;
+    color: var(--text-secondary);
+}
+
+.portal-plan-interval {
+    color: var(--text-muted);
+}
+
+/* ─── Portal Mobile Responsive ─────────────────────── */
+
+@media (max-width: 768px) {
+    .portal-action-card {
+        padding: 14px 16px;
+        gap: 12px;
+    }
+
+    .portal-action-icon {
+        width: 38px;
+        height: 38px;
+    }
+
+    .portal-modal {
+        padding: 24px;
+    }
+
+    .portal-modal-actions {
+        flex-direction: column;
+    }
+}

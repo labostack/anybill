@@ -22,6 +22,7 @@
 - **Provider-agnostic** — Stripe, crypto, anything — just drop a plugin file
 - **Self-contained** — single container, SQLite, zero external dependencies
 - **Outgoing webhooks** — HMAC-signed events with exponential backoff retries
+- **Client portal** — subscriber self-service: cancel, renew, change plan
 - **SDK** — zero-dep TypeScript client for your backend
 
 ## Quick Start
@@ -70,6 +71,7 @@ docker compose up -d
 | --- | --- |
 | `http://localhost:3000/admin` | Admin dashboard |
 | `http://localhost:3000/pay/s/:token` | Secure checkout page |
+| `http://localhost:3000/portal/:token` | Subscriber portal |
 | `http://localhost:3000/api/...` | API endpoints |
 
 On first visit to `/admin`, you'll be prompted to create an account and receive your initial API key.
@@ -189,6 +191,10 @@ const isActive = subscribers.some((s) => s.status === "active");
 // Create a secure checkout link
 const link = await client.createCheckoutLink("plan_uuid", "user_123");
 // Redirect user to link.url
+
+// Create a portal link for subscriber self-service
+const portal = await client.createPortalLink("user_123");
+// Redirect user to portal.url
 ```
 
 See the full SDK docs in [`packages/sdk/README.md`](packages/sdk/README.md).
@@ -205,6 +211,7 @@ AnyBill dispatches HMAC-SHA256 signed events to your endpoints:
 | `payment.cancelled` | Payment cancelled |
 | `subscription.renewed` | Recurring subscription renewed |
 | `subscription.expired` | Subscription period ended |
+| `subscription.cancelled` | Subscription cancelled (via portal or admin) |
 
 Each delivery includes:
 
@@ -244,6 +251,8 @@ Failed deliveries are retried with exponential backoff (10s → 1m → 5m → 30
 | `POST` | `/webhooks/:id/rotate-secret` | Rotate signing secret |
 | `POST` | `/webhooks/:id/test` | Send test event |
 | `GET` | `/webhooks/deliveries` | Delivery log |
+| `POST` | `/checkout-links` | Create a secure checkout link |
+| `POST` | `/portal-links` | Create a portal link |
 
 </details>
 
@@ -268,6 +277,19 @@ Failed deliveries are retried with exponential backoff (10s → 1m → 5m → 30
 </details>
 
 <details>
+<summary>Portal API — <code>/api/portal</code> (token-protected)</summary>
+
+| Method | Path | Description |
+| --- | --- | --- |
+| `GET` | `/resolve/:token` | Verify token, return subscriber state |
+| `POST` | `/cancel` | Cancel subscription |
+| `POST` | `/change` | Change plan (returns checkout URL) |
+| `POST` | `/renew` | Renew subscription (returns checkout URL) |
+| `GET` | `/invoices` | Subscriber invoice history |
+
+</details>
+
+<details>
 <summary>SDK API — <code>/api/sdk</code> (API key-protected)</summary>
 
 | Method | Path | Description |
@@ -277,6 +299,7 @@ Failed deliveries are retried with exponential backoff (10s → 1m → 5m → 30
 | `GET` | `/subscribers/:id` | Get subscriber by ID |
 | `GET` | `/invoices/:id` | Get invoice by ID |
 | `POST` | `/checkout-links` | Create a secure checkout link |
+| `POST` | `/portal-links` | Create a portal link |
 
 </details>
 

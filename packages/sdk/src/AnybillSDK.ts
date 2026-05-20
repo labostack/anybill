@@ -17,7 +17,7 @@
  * ```
  */
 
-import type { AnybillSDKConfig, Subscription, Subscriber, Invoice, CheckoutLink } from "./types";
+import type { AnybillSDKConfig, Subscription, Subscriber, Invoice, CheckoutLink, PortalLink } from "./types";
 
 /**
  * AnyBill SDK client.
@@ -126,6 +126,23 @@ export class AnybillSDK {
         const body: Record<string, any> = { sub_id: subscriptionId, uid };
         if (ttl !== undefined) body.ttl = ttl;
         return this.post("/checkout-links", body);
+    }
+
+    /**
+     * Create a secure portal link.
+     *
+     * The returned URL grants the end-user access to their subscription
+     * management portal (view, cancel, change plan, renew).
+     * The link expires after `ttl` seconds (default: 30 minutes).
+     *
+     * @param uid - External user identifier.
+     * @param ttl - Optional token lifetime in seconds (60–86400).
+     * @returns Portal link with token, URL, and expiration.
+     */
+    async createPortalLink(uid: string, ttl?: number): Promise<PortalLink> {
+        const body: Record<string, any> = { uid };
+        if (ttl !== undefined) body.ttl = ttl;
+        return this.post("/portal-links", body);
     }
 
 }

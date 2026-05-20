@@ -70,7 +70,7 @@ export function Layout(props: ParentProps) {
                         class={`nav-item ${isActive("/links") ? "active" : ""}`}
                     >
                         <Link size={20} />
-                        <span class="tooltip">Payment Links</span>
+                        <span class="tooltip">Links</span>
                     </A>
 
                     <A

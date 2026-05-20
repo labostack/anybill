@@ -64,10 +64,10 @@ export class CheckoutController {
     /**
      * Resolve a secure checkout token.
      *
-     * Verifies the HMAC signature and expiration, then returns
+     * Verifies the encrypted token and expiration, then returns
      * the subscription info and user ID embedded in the token.
      *
-     * @param token - Signed checkout token from the URL.
+     * @param token - Encrypted checkout token from the URL.
      * @returns Subscription data, uid, providers, and checkout config.
      */
     @Get("/resolve/:token")

@@ -33,6 +33,10 @@ const isActive = subscribers.some((s) => s.status === "active");
 // Create a secure checkout link
 const link = await client.createCheckoutLink("plan-uuid", "user_123");
 // link.url → redirect user here
+
+// Create a portal link for subscriber self-service
+const portal = await client.createPortalLink("user_123");
+// portal.url → redirect user to manage their subscription
 ```
 
 ### Methods
@@ -44,6 +48,7 @@ const link = await client.createCheckoutLink("plan-uuid", "user_123");
 | `getSubscriber(id)`                   | Get a subscriber by AnyBill ID            |
 | `getInvoice(id)`                      | Get an invoice by ID                      |
 | `createCheckoutLink(planId, uid, ttl?)` | Create a secure, time-limited checkout URL |
+| `createPortalLink(uid, ttl?)`           | Create a time-limited subscriber portal URL        |
 
 ## Provider API
 

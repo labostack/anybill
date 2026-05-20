@@ -64,3 +64,13 @@ export interface CheckoutLink {
     /** ISO 8601 expiration timestamp. */
     expiresAt: string;
 }
+
+/** Secure portal link returned by the API. */
+export interface PortalLink {
+    /** Encrypted portal token. */
+    token: string;
+    /** Full portal URL to redirect the user to. */
+    url: string;
+    /** ISO 8601 expiration timestamp. */
+    expiresAt: string;
+}

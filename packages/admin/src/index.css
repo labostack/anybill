@@ -1881,3 +1881,60 @@ label {
     color: var(--accent);
     border: 1px solid rgba(255, 255, 255, 0.06);
 }
+
+/* ─── Links Page Tabs ──────────────────────────────── */
+
+.links-tabs {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 16px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 4px;
+}
+
+.links-tab {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 10px 20px;
+    border: none;
+    border-radius: var(--radius);
+    font-size: 13px;
+    font-weight: 600;
+    font-family: var(--font);
+    color: var(--text-muted);
+    background: transparent;
+    cursor: pointer;
+    transition: all 0.2s var(--ease);
+    white-space: nowrap;
+}
+
+.links-tab:hover {
+    color: var(--text-secondary);
+    background: rgba(255, 255, 255, 0.03);
+}
+
+.links-tab.active {
+    color: var(--text);
+    background: var(--bg-elevated);
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+}
+
+.links-tab svg {
+    width: 16px;
+    height: 16px;
+}
+
+/* Portal badge (purple tint) */
+
+.badge-portal {
+    background: rgba(183, 148, 244, 0.12);
+    color: #b794f4;
+}
+.badge-portal::before {
+    background: #b794f4;
+}

@@ -16,7 +16,9 @@ import { Subscription } from "../../entities/Subscription";
 import { Subscriber } from "../../entities/Subscriber";
 import { Invoice } from "../../entities/Invoice";
 import { createCheckoutToken } from "../../core/checkoutToken";
+import { createPortalToken } from "../../core/portalToken";
 import { CreateCheckoutLinkBody } from "../../models/CheckoutLinkModels";
+import { CreatePortalLinkBody } from "../../models/PortalLinkModels";
 
 const CHECKOUT_ORIGIN = process.env.CHECKOUT_ORIGIN || "http://localhost:3002";
 
@@ -79,7 +81,7 @@ export class SdkController {
     /**
      * Generate a secure checkout link.
      *
-     * Creates an HMAC-signed token containing the subscription ID and user ID.
+     * Creates an AES-256-GCM encrypted token containing the subscription ID and user ID.
      * The resulting URL can be shared with the end-user to access the checkout page.
      *
      * @returns Token, full checkout URL, and expiration timestamp.
@@ -104,6 +106,37 @@ export class SdkController {
         return {
             token,
             url: `${CHECKOUT_ORIGIN}/pay/s/${token}`,
+            expiresAt: expiresAt.toISOString(),
+        };
+    }
+
+    /**
+     * Generate a secure portal link.
+     *
+     * Creates an AES-256-GCM encrypted token containing the user ID.
+     * The resulting URL grants the end-user access to their subscription
+     * management portal (view, cancel, change plan, renew).
+     *
+     * @returns Token, full portal URL, and expiration timestamp.
+     */
+    @Post("/portal-links")
+    @Summary("Create portal link")
+    @Description("Generates a secure, time-limited portal URL for subscriber self-service.")
+    @Returns(200)
+    @Returns(400)
+    @Returns(404)
+    async createPortalLink(@BodyParams() { uid, ttl }: CreatePortalLinkBody) {
+        // Verify at least one subscriber exists for this uid.
+        const subscriber = await AppDataSource.getRepository(Subscriber).findOneBy({ uid });
+        if (!subscriber) {
+            throw new NotFound("No subscriber found for this uid");
+        }
+
+        const { token, expiresAt } = createPortalToken(uid, ttl);
+
+        return {
+            token,
+            url: `${CHECKOUT_ORIGIN}/portal/${token}`,
             expiresAt: expiresAt.toISOString(),
         };
     }
