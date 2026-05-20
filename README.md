@@ -83,6 +83,7 @@ All configuration is via environment variables.
 | Variable | Default | Description |
 | --- | --- | --- |
 | `JWT_SECRET` | — | **Required.** JWT signing key |
+| `LINK_SECRET` | derived from `JWT_SECRET` | Encryption key for checkout/portal links (AES-256-GCM) |
 | `DB_PATH` | `/data/anybill.db` | SQLite database file path |
 | `PROVIDERS` | — | Path to provider plugins directory |
 | `CHECKOUT_ORIGIN` | `http://localhost:3002` | Checkout domain (used in payment links and CORS) |
