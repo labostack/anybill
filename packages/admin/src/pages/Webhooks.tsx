@@ -25,6 +25,7 @@ export function Webhooks() {
     const [deliveryPage, setDeliveryPage] = createSignal(1);
     const [deliveryTotal, setDeliveryTotal] = createSignal(0);
     const [rotatedSecret, setRotatedSecret] = createSignal<string | null>(null);
+    const [formError, setFormError] = createSignal("");
 
     const loadEndpoints = async () => {
         const data = await api.get("/webhooks");
@@ -48,29 +49,42 @@ export function Webhooks() {
     });
 
     const createEndpoint = async () => {
-        const result = await api.post("/webhooks", {
-            url: newUrl(),
-            description: newDesc() || null,
-            events: newEvents(),
-        });
-        setCreatedSecret(result.secret);
-        setShowModal(false);
-        setNewUrl("");
-        setNewDesc("");
-        setNewEvents([]);
-        loadEndpoints();
+        setFormError("");
+        try {
+            const result = await api.post("/webhooks", {
+                url: newUrl(),
+                description: newDesc() || null,
+                events: newEvents(),
+            });
+            setCreatedSecret(result.secret);
+            setShowModal(false);
+            setNewUrl("");
+            setNewDesc("");
+            setNewEvents([]);
+            loadEndpoints();
+        } catch (err: any) {
+            setFormError(err.message);
+        }
     };
 
     const deleteEndpoint = async (id: string) => {
         if (!confirm("Delete this webhook endpoint? All delivery history will be lost.")) return;
-        await api.del(`/webhooks/${id}`);
-        loadEndpoints();
-        loadDeliveries();
+        try {
+            await api.del(`/webhooks/${id}`);
+            loadEndpoints();
+            loadDeliveries();
+        } catch (err: any) {
+            alert(err.message);
+        }
     };
 
     const toggleActive = async (ep: any) => {
-        await api.put(`/webhooks/${ep.id}`, { isActive: !ep.isActive });
-        loadEndpoints();
+        try {
+            await api.put(`/webhooks/${ep.id}`, { isActive: !ep.isActive });
+            loadEndpoints();
+        } catch (err: any) {
+            alert(err.message);
+        }
     };
 
     const rotateSecret = async (id: string) => {
@@ -338,6 +352,9 @@ export function Webhooks() {
                 <div class="modal-overlay" onClick={() => setShowModal(false)}>
                     <div class="modal" onClick={(e) => e.stopPropagation()}>
                         <h2>Add Webhook Endpoint</h2>
+                        <Show when={formError()}>
+                            <div class="error-msg">{formError()}</div>
+                        </Show>
                         <div class="form-group">
                             <label>Endpoint URL</label>
                             <input

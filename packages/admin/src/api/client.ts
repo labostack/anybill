@@ -10,6 +10,26 @@
 const BASE = "/api/admin";
 
 /**
+ * Clean up backend validation messages for display.
+ *
+ * AJV errors arrive like:
+ *   `Bad request on parameter "request.body".\nCreateSubscriptionBody.amount must be >= 1. Given value: 0`
+ *
+ * This strips the technical prefix and class names so the user sees:
+ *   `amount must be >= 1`
+ */
+function formatApiError(raw: string): string {
+    return raw
+        .split("\n")
+        .map(line => line.replace(/^Bad request on parameter .+\.\s*/, ""))
+        .map(line => line.replace(/^\w+Body\./, ""))
+        .map(line => line.replace(/^\w+Query\./, ""))
+        .map(line => line.replace(/\. Given value: .+$/, ""))
+        .filter(Boolean)
+        .join(". ");
+}
+
+/**
  * Perform an authenticated API request.
  *
  * The browser automatically sends the HttpOnly session cookie.
@@ -33,7 +53,7 @@ async function request<T = any>(method: string, path: string, body?: any): Promi
 
     if (!res.ok) {
         const err = await res.json().catch(() => ({ message: res.statusText }));
-        throw new Error(err.message || res.statusText);
+        throw new Error(formatApiError(err.message || res.statusText));
     }
 
     return res.json();

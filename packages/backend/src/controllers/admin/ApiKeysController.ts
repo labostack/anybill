@@ -15,7 +15,7 @@ import { AdminGuard } from "../../core/AdminGuard";
 import { AppDataSource } from "../../core/datasource";
 import { ApiKey } from "../../entities/ApiKey";
 import { generateApiKey, hashApiKey } from "../../core/auth";
-import { validate, CreateApiKeySchema, RenameApiKeySchema } from "../../core/validation";
+import { CreateApiKeyBody, RenameApiKeyBody } from "../../models/ApiKeyModels";
 
 @Controller("/api-keys")
 @UseBefore(AdminGuard)
@@ -42,8 +42,7 @@ export class ApiKeysController {
     @Summary("Create an API key")
     @Description("Generates a new API key. Full value shown only once.")
     @Returns(201)
-    async create(@BodyParams() body: unknown) {
-        const { name } = validate(CreateApiKeySchema, body);
+    async create(@BodyParams() { name }: CreateApiKeyBody) {
         const key = generateApiKey();
         const prefix = key.slice(0, 11) + "...";
         const entity = this.repo().create({ name, key: hashApiKey(key), prefix });
@@ -55,8 +54,7 @@ export class ApiKeysController {
     @Summary("Rename an API key")
     @Returns(200)
     @Returns(404)
-    async rename(@PathParams("id") id: string, @BodyParams() body: unknown) {
-        const { name } = validate(RenameApiKeySchema, body);
+    async rename(@PathParams("id") id: string, @BodyParams() { name }: RenameApiKeyBody) {
         const key = await this.repo().findOneBy({ id });
         if (!key) throw new NotFound("API key not found");
         key.name = name;

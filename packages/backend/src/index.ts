@@ -16,6 +16,7 @@ if (process.env.NODE_ENV !== "production") {
 }
 
 import { PlatformExpress } from "@tsed/platform-express";
+import { $log } from "@tsed/common";
 import { Server } from "./core/Server";
 
 /**
@@ -25,7 +26,7 @@ async function main(): Promise<void> {
     const platform = await PlatformExpress.bootstrap(Server);
     await platform.listen();
 
-    console.log("[anybill] Server ready");
+    $log.info("Server ready");
 }
 
-main().catch(console.error);
+main().catch((err) => { $log.error("Startup failed", err); process.exit(1); });

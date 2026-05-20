@@ -13,7 +13,8 @@
  * If `PROVIDERS` is not set, the platform starts with zero providers.
  */
 
-import { Injectable } from "@tsed/di";
+import { Injectable, Inject } from "@tsed/di";
+import { Logger } from "@tsed/logger";
 import { readdirSync, existsSync, readFileSync } from "fs";
 import { join, resolve, dirname } from "path";
 import Module from "module";
@@ -71,6 +72,9 @@ export class ProviderLoader {
     private readonly providers = new Map<string, AnybillProvider>();
     private loaded = false;
 
+    @Inject()
+    logger!: Logger;
+
     async load(): Promise<Map<string, AnybillProvider>> {
         if (this.loaded) return this.providers;
 
@@ -82,7 +86,7 @@ export class ProviderLoader {
 
         const resolved = resolve(dir);
         if (!existsSync(resolved)) {
-            console.warn(`[anybill] Providers directory not found: ${resolved}`);
+            this.logger.warn(`Providers directory not found: ${resolved}`);
             this.loaded = true;
             return this.providers;
         }
@@ -106,14 +110,14 @@ export class ProviderLoader {
                 const exported = mod.default ?? mod;
 
                 if (!exported.name || !exported.provider) {
-                    console.warn(`[anybill] Skipping ${file}: missing 'name' or 'provider' export`);
+                    this.logger.warn(`Skipping ${file}: missing 'name' or 'provider' export`);
                     continue;
                 }
 
                 this.providers.set(exported.name, exported.provider);
-                console.log(`[anybill] Loaded provider: ${exported.name} (${file})`);
+                this.logger.info(`Loaded provider: ${exported.name} (${file})`);
             } catch (err) {
-                console.error(`[anybill] Failed to load provider ${file}:`, err);
+                this.logger.error(`Failed to load provider ${file}:`, err);
             }
         }
 

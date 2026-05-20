@@ -15,7 +15,7 @@ import { AppDataSource } from "../../core/datasource";
 import { Subscription } from "../../entities/Subscription";
 import { Subscriber } from "../../entities/Subscriber";
 import { Invoice } from "../../entities/Invoice";
-import { validate, CreateSubscriptionSchema, UpdateSubscriptionSchema } from "../../core/validation";
+import { CreateSubscriptionBody, UpdateSubscriptionBody } from "../../models/SubscriptionModels";
 
 @Controller("/subscriptions")
 @UseBefore(AdminGuard)
@@ -68,8 +68,7 @@ export class SubscriptionsController {
     @Description("Creates a new subscription plan. One-time plans always use manual renewal.")
     @Returns(201)
     @Returns(400)
-    async create(@BodyParams() body: unknown) {
-        const data = validate(CreateSubscriptionSchema, body);
+    async create(@BodyParams() data: CreateSubscriptionBody) {
 
         if (data.interval === "one_time") {
             data.renewalMode = "manual";
@@ -85,11 +84,9 @@ export class SubscriptionsController {
     @Returns(200)
     @Returns(404)
     @Returns(400)
-    async update(@PathParams("id") id: string, @BodyParams() body: unknown) {
+    async update(@PathParams("id") id: string, @BodyParams() data: UpdateSubscriptionBody) {
         const sub = await this.repo().findOneBy({ id });
         if (!sub) throw new NotFound("Subscription not found");
-
-        const data = validate(UpdateSubscriptionSchema, body);
 
         const interval = data.interval ?? sub.interval;
         if (interval === "one_time") {

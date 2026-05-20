@@ -12,6 +12,7 @@ import { AdminGuard } from "../../core/AdminGuard";
 import { AppDataSource } from "../../core/datasource";
 import { Invoice } from "../../entities/Invoice";
 import { Between, type FindOptionsWhere } from "typeorm";
+import { InvoiceListQuery } from "../../models/QueryModels";
 
 @Controller("/invoices")
 @UseBefore(AdminGuard)
@@ -27,13 +28,8 @@ export class InvoicesController {
     @Summary("List invoices")
     @Description("Returns a paginated list of invoices with optional status and date range filters.")
     @Returns(200)
-    async list(
-        @QueryParams("status") status?: string,
-        @QueryParams("from") from?: string,
-        @QueryParams("to") to?: string,
-        @QueryParams("page") page = 1,
-        @QueryParams("limit") limit = 50,
-    ) {
+    async list(@QueryParams() query: InvoiceListQuery) {
+        const { status, from, to, page, limit } = query;
         const where: FindOptionsWhere<Invoice> = {};
         if (status) where.status = status as any;
         if (from && to) where.createdAt = Between(new Date(from), new Date(to));

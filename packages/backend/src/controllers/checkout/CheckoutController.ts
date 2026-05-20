@@ -8,13 +8,14 @@
  */
 
 import { Controller, Get, Post, BodyParams, QueryParams, PathParams } from "@tsed/common";
-import { BadRequest, NotFound } from "@tsed/exceptions";
+import { NotFound } from "@tsed/exceptions";
 import { Tags, Summary, Description, Returns } from "@tsed/schema";
 import { AppDataSource } from "../../core/datasource";
 import { Subscription } from "../../entities/Subscription";
 import { Account } from "../../entities/Account";
 import { BillingService } from "../../services/BillingService";
-import { validate, CheckoutPaySchema } from "../../core/validation";
+import { CheckoutPayBody } from "../../models/CheckoutModels";
+import { CheckoutInfoQuery } from "../../models/QueryModels";
 
 @Controller("/")
 @Tags("Checkout")
@@ -33,8 +34,7 @@ export class CheckoutController {
     @Returns(200)
     @Returns(400)
     @Returns(404)
-    async info(@QueryParams("sub_id") subId: string) {
-        if (!subId) throw new BadRequest("sub_id is required");
+    async info(@QueryParams() { sub_id: subId }: CheckoutInfoQuery) {
 
         const subscription = await AppDataSource.getRepository(Subscription).findOneBy({ id: subId, isActive: true });
         if (!subscription) throw new NotFound("Subscription not found");
@@ -69,8 +69,7 @@ export class CheckoutController {
     @Description("Creates a subscriber (if needed), generates an invoice, and returns a payment URL.")
     @Returns(200)
     @Returns(400)
-    async pay(@BodyParams() body: unknown) {
-        const { sub_id, uid, provider } = validate(CheckoutPaySchema, body);
+    async pay(@BodyParams() { sub_id, uid, provider }: CheckoutPayBody) {
         return this.billing.createPayment(sub_id, uid, provider);
     }
 

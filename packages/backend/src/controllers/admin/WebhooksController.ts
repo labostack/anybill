@@ -16,7 +16,8 @@ import { WebhookEndpoint } from "../../entities/WebhookEndpoint";
 import { WebhookDelivery } from "../../entities/WebhookDelivery";
 import { OutgoingWebhookService } from "../../services/OutgoingWebhookService";
 import { randomBytes } from "crypto";
-import { validate, CreateWebhookSchema, UpdateWebhookSchema } from "../../core/validation";
+import { CreateWebhookBody, UpdateWebhookBody } from "../../models/WebhookModels";
+import { DeliveryListQuery } from "../../models/QueryModels";
 
 function generateSecret(): string {
     return `whsec_${randomBytes(24).toString("hex")}`;
@@ -49,8 +50,7 @@ export class WebhooksController {
     @Summary("Create webhook endpoint")
     @Description("Creates a new webhook endpoint. Signing secret is shown only once.")
     @Returns(201)
-    async create(@BodyParams() body: unknown) {
-        const data = validate(CreateWebhookSchema, body);
+    async create(@BodyParams() data: CreateWebhookBody) {
         const secret = generateSecret();
         const ep = this.epRepo().create({
             url: data.url, secret, description: data.description || null,
@@ -64,10 +64,9 @@ export class WebhooksController {
     @Summary("Update webhook endpoint")
     @Returns(200)
     @Returns(404)
-    async update(@PathParams("id") id: string, @BodyParams() body: unknown) {
+    async update(@PathParams("id") id: string, @BodyParams() data: UpdateWebhookBody) {
         const ep = await this.epRepo().findOneBy({ id });
         if (!ep) throw new NotFound("Endpoint not found");
-        const data = validate(UpdateWebhookSchema, body);
         if (data.url !== undefined) ep.url = data.url;
         if (data.description !== undefined) ep.description = data.description;
         if (data.events !== undefined) ep.events = data.events;
@@ -119,11 +118,8 @@ export class WebhooksController {
     @Summary("List delivery logs")
     @Description("Returns paginated webhook delivery logs, optionally filtered by endpoint.")
     @Returns(200)
-    async deliveries(
-        @QueryParams("endpoint_id") endpointId?: string,
-        @QueryParams("page") page = 1,
-        @QueryParams("limit") limit = 15,
-    ) {
+    async deliveries(@QueryParams() query: DeliveryListQuery) {
+        const { endpoint_id: endpointId, page, limit } = query;
         const where: any = {};
         if (endpointId) where.endpointId = endpointId;
         const [deliveries, total] = await this.dlvRepo().findAndCount({

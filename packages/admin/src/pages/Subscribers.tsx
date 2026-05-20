@@ -17,14 +17,22 @@ export function Subscribers() {
 
     const cancel = async (id: string) => {
         if (!confirm("Cancel this subscription?")) return;
-        await api.post(`/subscribers/${id}/cancel`);
-        load();
+        try {
+            await api.post(`/subscribers/${id}/cancel`);
+            load();
+        } catch (err: any) {
+            alert(err.message);
+        }
     };
 
     const refund = async (id: string) => {
         if (!confirm("Refund this subscriber? This will attempt to refund via the payment provider.")) return;
-        await api.post(`/subscribers/${id}/refund`);
-        load();
+        try {
+            await api.post(`/subscribers/${id}/refund`);
+            load();
+        } catch (err: any) {
+            alert(err.message);
+        }
     };
 
     return (

@@ -53,6 +53,8 @@ export function Subscriptions() {
     const [editing, setEditing] = createSignal<any>(null);
     const [collapsed, setCollapsed] = createSignal<Record<string, boolean>>({});
     const [form, setForm] = createSignal({ name: "", description: "", displayAmount: "", currency: "USD", interval: "month", intervalCount: "1", renewalMode: "manual" });
+    const [formError, setFormError] = createSignal("");
+    const [saving, setSaving] = createSignal(false);
 
     const load = async () => {
         const data = await api.get("/subscriptions");
@@ -86,6 +88,7 @@ export function Subscriptions() {
     const openCreate = () => {
         setEditing(null);
         setForm({ name: "", description: "", displayAmount: "", currency: "USD", interval: "month", intervalCount: "1", renewalMode: "manual" });
+        setFormError("");
         setShowModal(true);
     };
 
@@ -100,33 +103,46 @@ export function Subscriptions() {
             intervalCount: String(sub.intervalCount),
             renewalMode: sub.renewalMode || "manual",
         });
+        setFormError("");
         setShowModal(true);
     };
 
     const save = async () => {
-        const amount = displayToMinor(form().displayAmount);
-        const body = {
-            name: form().name,
-            description: form().description,
-            amount,
-            currency: form().currency,
-            interval: form().interval,
-            intervalCount: form().interval === "one_time" ? 1 : Number(form().intervalCount),
-            renewalMode: form().interval === "one_time" ? "manual" : form().renewalMode,
-        };
-        if (editing()) {
-            await api.put(`/subscriptions/${editing().id}`, body);
-        } else {
-            await api.post("/subscriptions", body);
+        setFormError("");
+        setSaving(true);
+        try {
+            const amount = displayToMinor(form().displayAmount);
+            const body = {
+                name: form().name,
+                description: form().description,
+                amount,
+                currency: form().currency,
+                interval: form().interval,
+                intervalCount: form().interval === "one_time" ? 1 : Number(form().intervalCount),
+                renewalMode: form().interval === "one_time" ? "manual" : form().renewalMode,
+            };
+            if (editing()) {
+                await api.put(`/subscriptions/${editing().id}`, body);
+            } else {
+                await api.post("/subscriptions", body);
+            }
+            setShowModal(false);
+            load();
+        } catch (err: any) {
+            setFormError(err.message);
+        } finally {
+            setSaving(false);
         }
-        setShowModal(false);
-        load();
     };
 
     const remove = async (id: string) => {
         if (!confirm("Delete this subscription?")) return;
-        await api.del(`/subscriptions/${id}`);
-        load();
+        try {
+            await api.del(`/subscriptions/${id}`);
+            load();
+        } catch (err: any) {
+            alert(err.message);
+        }
     };
 
     const formatPrice = (amount: number, currency: string) =>
@@ -272,6 +288,9 @@ export function Subscriptions() {
                 <div class="modal-overlay" onClick={() => setShowModal(false)}>
                     <div class="modal" onClick={(e) => e.stopPropagation()}>
                         <h2>{editing() ? "Edit" : "Create"} Plan</h2>
+                        <Show when={formError()}>
+                            <div class="error-msg">{formError()}</div>
+                        </Show>
                         <div class="form-group">
                             <label>Name</label>
                             <input value={form().name} onInput={(e) => setForm({ ...form(), name: e.target.value })} placeholder="e.g. Pro" />
@@ -372,8 +391,8 @@ export function Subscriptions() {
                         </div>
                         <div class="modal-actions">
                             <button class="btn btn-ghost" onClick={() => setShowModal(false)}>Cancel</button>
-                            <button class="btn btn-primary" onClick={save}>
-                                {editing() ? "Save changes" : "Create plan"}
+                            <button class="btn btn-primary" onClick={save} disabled={saving()}>
+                                {saving() ? "Saving..." : editing() ? "Save changes" : "Create plan"}
                             </button>
                         </div>
                     </div>

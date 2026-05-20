@@ -9,7 +9,9 @@
  * 3. Update entity state and dispatch outgoing webhooks.
  */
 
-import { Injectable, OnInit } from "@tsed/di";
+import { Injectable, OnInit, Inject } from "@tsed/di";
+import { NotFound, Conflict, BadRequest } from "@tsed/exceptions";
+import { Logger } from "@tsed/logger";
 import { BillingEngine } from "../billing/BillingEngine";
 import { AppDataSource } from "../core/datasource";
 import { Invoice } from "../entities/Invoice";
@@ -27,6 +29,9 @@ export class BillingService implements OnInit {
         private readonly providerLoader: ProviderLoader,
         private readonly outgoingWebhooks: OutgoingWebhookService,
     ) {}
+
+    @Inject()
+    logger!: Logger;
 
     // ─── Lifecycle ──────────────────────────────────────────────
 
@@ -47,7 +52,7 @@ export class BillingService implements OnInit {
         this.engine.on("payment:refunded", ({ payment }) => this.onPaymentRefunded(payment.id));
         this.engine.on("payment:renewed", ({ provider, payment }) => this.onPaymentRenewed(payment.id, provider, payment.metadata));
 
-        console.log(`[anybill] Billing engine ready (${providers.size} providers)`);
+        this.logger.info(`Billing engine ready (${providers.size} providers)`);
     }
 
     // ─── Public API ─────────────────────────────────────────────
@@ -79,7 +84,8 @@ export class BillingService implements OnInit {
         const subscriberRepo = AppDataSource.getRepository(Subscriber);
         const subscriptionRepo = AppDataSource.getRepository(Subscription);
 
-        const subscription = await subscriptionRepo.findOneByOrFail({ id: subscriptionId });
+        const subscription = await subscriptionRepo.findOneBy({ id: subscriptionId });
+        if (!subscription) throw new NotFound("Subscription not found");
 
         // Find or create subscriber.
         let subscriber = await subscriberRepo.findOneBy({ uid, subscriptionId });
@@ -96,7 +102,7 @@ export class BillingService implements OnInit {
                 status: "paid",
             });
             if (existingPaid) {
-                throw new Error("This one-time subscription has already been purchased");
+                throw new Conflict("This one-time subscription has already been purchased");
             }
         }
 
@@ -161,13 +167,13 @@ export class BillingService implements OnInit {
         const subscriberRepo = AppDataSource.getRepository(Subscriber);
 
         const subscriber = await subscriberRepo.findOneBy({ id: subscriberId });
-        if (!subscriber) throw new Error("Subscriber not found");
+        if (!subscriber) throw new NotFound("Subscriber not found");
 
         const invoice = await invoiceRepo.findOne({
             where: { subscriberId, status: "paid" },
             order: { paidAt: "DESC" },
         });
-        if (!invoice) throw new Error("No paid invoice found to refund");
+        if (!invoice) throw new BadRequest("No paid invoice found to refund");
 
         if (!this.engine.can(invoice.provider, "refund")) {
             // Manual refund: update DB state directly.
@@ -318,13 +324,13 @@ export class BillingService implements OnInit {
             });
         }
         if (!subscriber) {
-            console.error(`[billing] Renewal webhook: subscriber not found (provider: ${providerName})`);
+            this.logger.error(`Renewal webhook: subscriber not found (provider: ${providerName})`);
             return;
         }
 
         const subscription = await subscriptionRepo.findOneBy({ id: subscriber.subscriptionId });
         if (!subscription) {
-            console.error(`[billing] Renewal webhook: subscription not found for subscriber ${subscriber.id}`);
+            this.logger.error(`Renewal webhook: subscription not found for subscriber ${subscriber.id}`);
             return;
         }
 

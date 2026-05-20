@@ -19,14 +19,20 @@
 
 import { Configuration, Inject } from "@tsed/di";
 import { PlatformApplication } from "@tsed/common";
+import { Logger } from "@tsed/logger";
 import "@tsed/platform-express";
 import "@tsed/swagger";
+import "@tsed/ajv";
 import cors from "cors";
 import helmet from "helmet";
 import express from "express";
 import { mkdirSync, readFileSync } from "fs";
 import { join } from "path";
 import { AppDataSource } from "./datasource";
+
+// ─── Exception Filters (auto-registered by Ts.ED DI) ───────────────
+import "./filters/HttpExceptionFilter";
+import "./filters/GlobalErrorFilter";
 
 const pkg = JSON.parse(readFileSync(join(__dirname, "../../package.json"), "utf-8"));
 
@@ -122,13 +128,18 @@ import { HealthController } from "../controllers/HealthController";
         express.urlencoded({ extended: true }),
     ],
     logger: {
-        disableRoutesSummary: process.env.VERBOSE_LOGS !== "true",
-        level: process.env.VERBOSE_LOGS === "true" ? "info" : "warn",
+        level: (process.env.LOG_LEVEL || (process.env.NODE_ENV === "production" ? "info" : "debug")) as "debug" | "info" | "warn" | "error" | "off",
+        disableRoutesSummary: process.env.NODE_ENV === "production",
+        logRequest: true,
+        requestFields: ["reqId", "method", "url", "duration"],
     },
 })
 export class Server {
     @Inject()
     app!: PlatformApplication;
+
+    @Inject()
+    logger!: Logger;
 
     /**
      * Create the database directory before TypeORM initializes.
@@ -143,7 +154,7 @@ export class Server {
      */
     async $afterInit(): Promise<void> {
         await AppDataSource.initialize();
-        console.log("[anybill] Database connected");
+        this.logger.info("Database connected");
     }
 
     /**

@@ -12,7 +12,8 @@ import { AppDataSource } from "../../core/datasource";
 import { Account } from "../../entities/Account";
 import { hashPassword, comparePassword } from "../../core/auth";
 import { BillingService } from "../../services/BillingService";
-import { validate, ChangePasswordSchema, UpdateCheckoutSettingsSchema } from "../../core/validation";
+import { ChangePasswordBody } from "../../models/AuthModels";
+import { UpdateCheckoutSettingsBody } from "../../models/SettingsModels";
 
 @Controller("/settings")
 @UseBefore(AdminGuard)
@@ -43,8 +44,10 @@ export class SettingsController {
     @Description("Changes the admin password. Requires the current password for verification.")
     @Returns(200)
     @Returns(400)
-    async changePassword(@BodyParams() body: unknown) {
-        const data = validate(ChangePasswordSchema, body);
+    async changePassword(@BodyParams() data: ChangePasswordBody) {
+        if (data.newPassword !== data.confirmPassword) {
+            throw new BadRequest("Passwords do not match");
+        }
 
         const account = await this.getAccount();
         if (!comparePassword(data.currentPassword, account.passwordHash)) {
@@ -60,8 +63,7 @@ export class SettingsController {
     @Summary("Update checkout settings")
     @Description("Updates checkout page branding (logo, colors) and the success redirect URL.")
     @Returns(200)
-    async updateCheckout(@BodyParams() body: unknown) {
-        const data = validate(UpdateCheckoutSettingsSchema, body);
+    async updateCheckout(@BodyParams() data: UpdateCheckoutSettingsBody) {
 
         const account = await this.getAccount();
         if (data.checkoutConfig !== undefined) account.checkoutConfig = data.checkoutConfig;

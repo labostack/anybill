@@ -21,8 +21,10 @@
  */
 
 import { AnybillProvider } from "./AnybillProvider";
+import { BillingError } from "./BillingError";
 import { getMethodForRole, getRegisteredRoles, hasMethod } from "./ProviderRegistry";
 import type { PaymentLinkResult, PaymentResult } from "./builders";
+import { Logger } from "@tsed/logger";
 
 // ─── Public Interfaces ──────────────────────────────────────────────
 
@@ -86,6 +88,7 @@ export class BillingEngine {
 
     /** Whether to log debug information. */
     private readonly debug: boolean;
+    private readonly logger = new Logger("BillingEngine");
 
     constructor(opts?: BillingEngineOptions) {
         this.debug = opts?.debug ?? false;
@@ -104,7 +107,7 @@ export class BillingEngine {
         this.providers.set(name, instance);
         if (this.debug) {
             const roles = getRegisteredRoles(instance);
-            console.log(`[billing] Registered provider: ${name} (${roles.join(", ")})`);
+            this.logger.debug(`Registered provider: ${name} (${roles.join(", ")})`);
         }
         return this;
     }
@@ -181,7 +184,7 @@ export class BillingEngine {
             try {
                 await handler(data);
             } catch (err) {
-                console.error(`[billing] Error in "${event}" handler:`, err);
+                this.logger.error(`Error in "${event}" handler:`, err);
             }
         }
     }
@@ -197,16 +200,16 @@ export class BillingEngine {
      * @param providerName - The registered provider name.
      * @param ctx          - Payment context (plan, user, metadata).
      * @returns Resolved payment link data.
-     * @throws {Error} If the provider is unknown or has no link creator.
+     * @throws {BillingError} If the provider is unknown or has no link creator.
      */
     async createPaymentLink(providerName: string, ctx: PaymentContext): Promise<PaymentLinkResult> {
         const provider = this.resolveProvider(providerName);
         const methodName = getMethodForRole(provider, "createLink");
         if (!methodName) {
-            throw new Error(`Provider "${providerName}" has no @CreatePaymentLink() method`);
+            throw new BillingError(`Provider "${providerName}" has no @CreatePaymentLink() method`, "BAD_REQUEST");
         }
 
-        if (this.debug) console.log(`[billing] → ${providerName}.${methodName}()`);
+        if (this.debug) this.logger.debug(`→ ${providerName}.${methodName}()`);
 
         const result = await (provider as any)[methodName](ctx);
         const link = result.build ? result.build() : result;
@@ -226,7 +229,7 @@ export class BillingEngine {
      * @param providerName - The registered provider name.
      * @param payload      - Raw webhook body and headers.
      * @returns The parsed payment result, or `null` if ignored.
-     * @throws {Error} If validation fails or the provider is misconfigured.
+     * @throws {BillingError} If validation fails or the provider is misconfigured.
      */
     async handleWebhook(providerName: string, payload: WebhookPayload): Promise<PaymentResult | null> {
         const provider = this.resolveProvider(providerName);
@@ -237,17 +240,17 @@ export class BillingEngine {
             const valid = await (provider as any)[validateMethod](payload);
             if (!valid) {
                 await this.emit("webhook:rejected", { provider: providerName });
-                throw new Error(`Webhook signature verification failed for provider "${providerName}"`);
+                throw new BillingError(`Webhook signature verification failed for provider "${providerName}"`, "BAD_REQUEST");
             }
         }
 
         // Step 2: Process webhook.
         const handleMethod = getMethodForRole(provider, "incomingWebhook");
         if (!handleMethod) {
-            throw new Error(`Provider "${providerName}" has no @IncomingWebhook() method`);
+            throw new BillingError(`Provider "${providerName}" has no @IncomingWebhook() method`, "BAD_REQUEST");
         }
 
-        if (this.debug) console.log(`[billing] → ${providerName}.${handleMethod}()`);
+        if (this.debug) this.logger.debug(`→ ${providerName}.${handleMethod}()`);
 
         const result: PaymentResult = await (provider as any)[handleMethod](payload);
 
@@ -265,16 +268,16 @@ export class BillingEngine {
      * @param providerName - The registered provider name.
      * @param ctx          - Refund context (invoiceId, amount, etc.).
      * @returns The refund result from the provider.
-     * @throws {Error} If the provider doesn't support refunds.
+     * @throws {BillingError} If the provider doesn't support refunds.
      */
     async refund(providerName: string, ctx: Record<string, any>): Promise<PaymentResult> {
         const provider = this.resolveProvider(providerName);
         const methodName = getMethodForRole(provider, "refund");
         if (!methodName) {
-            throw new Error(`Provider "${providerName}" does not support refunds (@RefundPayment)`);
+            throw new BillingError(`Provider "${providerName}" does not support refunds (@RefundPayment)`, "BAD_REQUEST");
         }
 
-        if (this.debug) console.log(`[billing] → ${providerName}.${methodName}()`);
+        if (this.debug) this.logger.debug(`→ ${providerName}.${methodName}()`);
 
         const result: PaymentResult = await (provider as any)[methodName](ctx);
 
@@ -292,13 +295,13 @@ export class BillingEngine {
      *
      * @param name - The registered provider name.
      * @returns The provider instance.
-     * @throws {Error} With a list of available providers.
+     * @throws {BillingError} With a list of available providers.
      */
     private resolveProvider(name: string): AnybillProvider {
         const provider = this.providers.get(name);
         if (!provider) {
             const available = this.getProviderNames().join(", ");
-            throw new Error(`Unknown provider "${name}". Available: ${available || "none"}`);
+            throw new BillingError(`Unknown provider "${name}". Available: ${available || "none"}`, "NOT_FOUND");
         }
         return provider;
     }

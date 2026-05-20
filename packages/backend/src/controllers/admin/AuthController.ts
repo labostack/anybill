@@ -15,7 +15,7 @@ import { AppDataSource } from "../../core/datasource";
 import { Account } from "../../entities/Account";
 import { ApiKey } from "../../entities/ApiKey";
 import { hashPassword, comparePassword, signJwt, verifyJwt, generateApiKey, hashApiKey } from "../../core/auth";
-import { validate, AuthSetupSchema, AuthLoginSchema } from "../../core/validation";
+import { AuthSetupBody, AuthLoginBody } from "../../models/AuthModels";
 
 const COOKIE_NAME = "anybill_session";
 const isProduction = process.env.NODE_ENV === "production";
@@ -47,8 +47,7 @@ export class AuthController {
     @Description("Creates the admin account and a default API key. Only succeeds once — returns 409 if already initialized.")
     @Returns(200)
     @Returns(409)
-    async setup(@BodyParams() body: unknown, @Res() res: Response) {
-        const { email, password } = validate(AuthSetupSchema, body);
+    async setup(@BodyParams() { email, password }: AuthSetupBody, @Res() res: Response) {
 
         const accountRepo = AppDataSource.getRepository(Account);
         const existing = await accountRepo.count();
@@ -88,8 +87,7 @@ export class AuthController {
     @Description("Authenticates with email and password. Sets an HttpOnly session cookie.")
     @Returns(200)
     @Returns(400)
-    async login(@BodyParams() body: unknown, @Res() res: Response) {
-        const { email, password } = validate(AuthLoginSchema, body);
+    async login(@BodyParams() { email, password }: AuthLoginBody, @Res() res: Response) {
 
         const repo = AppDataSource.getRepository(Account);
         const account = await repo.findOneBy({ email });

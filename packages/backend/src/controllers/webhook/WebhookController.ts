@@ -8,7 +8,7 @@
  * handles signature validation and state transitions.
  */
 
-import { Controller, Post, PathParams, Req, Res } from "@tsed/common";
+import { Controller, Post, PathParams, Req, Res, Context } from "@tsed/common";
 import { Tags, Summary, Description, Returns } from "@tsed/schema";
 import { BillingService } from "../../services/BillingService";
 
@@ -33,12 +33,13 @@ export class WebhookController {
         @PathParams("provider") provider: string,
         @Req() req: any,
         @Res() res: any,
+        @Context() ctx: any,
     ) {
         try {
             const result = await this.billing.handleWebhook(provider, req.body, req.headers);
             return res.json({ ok: true, action: result?.action ?? "ignored" });
         } catch (err: any) {
-            console.error(`[webhook] Error processing ${provider} webhook:`, err.message);
+            ctx.logger.error({ provider, error: err.message });
             return res.status(400).json({ ok: false, message: err.message });
         }
     }

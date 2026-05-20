@@ -13,7 +13,8 @@ import { AdminGuard } from "../../core/AdminGuard";
 import { AppDataSource } from "../../core/datasource";
 import { Subscriber } from "../../entities/Subscriber";
 import { BillingService } from "../../services/BillingService";
-import { validate, UpdateSubscriberSchema } from "../../core/validation";
+import { UpdateSubscriberBody } from "../../models/SubscriberModels";
+import { SubscriberListQuery } from "../../models/QueryModels";
 
 @Controller("/subscribers")
 @UseBefore(AdminGuard)
@@ -31,11 +32,8 @@ export class SubscribersController {
     @Summary("List subscribers")
     @Description("Returns a paginated list of subscribers with optional status filter.")
     @Returns(200)
-    async list(
-        @QueryParams("status") status?: string,
-        @QueryParams("page") page = 1,
-        @QueryParams("limit") limit = 50,
-    ) {
+    async list(@QueryParams() query: SubscriberListQuery) {
+        const { status, page, limit } = query;
         const where: any = {};
         if (status) where.status = status;
 
@@ -68,11 +66,9 @@ export class SubscribersController {
     @Description("Updates subscriber status and/or metadata.")
     @Returns(200)
     @Returns(404)
-    async update(@PathParams("id") id: string, @BodyParams() body: unknown) {
+    async update(@PathParams("id") id: string, @BodyParams() data: UpdateSubscriberBody) {
         const sub = await this.repo().findOneBy({ id });
         if (!sub) throw new NotFound("Subscriber not found");
-
-        const data = validate(UpdateSubscriberSchema, body);
 
         // Apply only validated & whitelisted fields.
         if (data.status !== undefined) sub.status = data.status;

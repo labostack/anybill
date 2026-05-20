@@ -5,7 +5,8 @@
  * HMAC-SHA256 signing and exponential backoff retry (10s→1m→5m→30m→1h).
  */
 
-import { Injectable, OnInit, OnDestroy } from "@tsed/di";
+import { Injectable, OnInit, OnDestroy, Inject } from "@tsed/di";
+import { Logger } from "@tsed/logger";
 import { createHmac } from "crypto";
 import { AppDataSource } from "../core/datasource";
 import { WebhookEndpoint } from "../entities/WebhookEndpoint";
@@ -33,9 +34,12 @@ const MAX_BODY_LEN = Number(process.env.WEBHOOK_MAX_BODY_LEN) || 2048;
 export class OutgoingWebhookService implements OnInit, OnDestroy {
     private retryInterval?: ReturnType<typeof setInterval>;
 
+    @Inject()
+    logger!: Logger;
+
     async $onInit(): Promise<void> {
         this.retryInterval = setInterval(() => this.processRetries(), RETRY_POLL_MS);
-        console.log("[anybill] Outgoing webhook service ready");
+        this.logger.info("Outgoing webhook service ready");
     }
 
     $onDestroy(): void {
@@ -144,8 +148,8 @@ export class OutgoingWebhookService implements OnInit, OnDestroy {
                 }
                 await this.attemptDelivery(d, ep);
             }
-        } catch {
-            // Silent — retry worker must not crash.
+        } catch (err: any) {
+            this.logger.error("Retry worker error:", err.message);
         }
     }
 }

@@ -13,6 +13,7 @@ import { AdminGuard } from "../../core/AdminGuard";
 import { AppDataSource } from "../../core/datasource";
 import { Invoice } from "../../entities/Invoice";
 import { Subscriber } from "../../entities/Subscriber";
+import { DashboardQuery } from "../../models/QueryModels";
 
 /** Default dashboard lookback period (30 days in milliseconds). */
 const DEFAULT_LOOKBACK_MS = 30 * 86_400_000;
@@ -26,11 +27,8 @@ export class DashboardController {
     @Summary("Get dashboard statistics")
     @Description("Aggregates revenue by currency, daily payment chart data, and subscriber counts for the given date range.")
     @Returns(200)
-    async stats(
-        @QueryParams("from") from?: string,
-        @QueryParams("to") to?: string,
-        @QueryParams("status") status?: string,
-    ) {
+    async stats(@QueryParams() query: DashboardQuery) {
+        const { from, to, status } = query;
         const invoiceRepo = AppDataSource.getRepository(Invoice);
         const subscriberRepo = AppDataSource.getRepository(Subscriber);
 

@@ -21,6 +21,7 @@ export function ApiKeys() {
     const [revealed, setRevealed] = createSignal(false);
     const [renameId, setRenameId] = createSignal<string | null>(null);
     const [renameName, setRenameName] = createSignal("");
+    const [formError, setFormError] = createSignal("");
 
     const load = async () => {
         const data = await api.get<ApiKeyItem[]>("/api-keys");
@@ -31,13 +32,18 @@ export function ApiKeys() {
 
     const create = async () => {
         if (!newName().trim()) return;
-        const data = await api.post<ApiKeyItem>("/api-keys", { name: newName().trim() });
-        setNewlyCreated(data);
-        setShowCreate(false);
-        setNewName("");
-        setCopied(false);
-        setRevealed(false);
-        load();
+        setFormError("");
+        try {
+            const data = await api.post<ApiKeyItem>("/api-keys", { name: newName().trim() });
+            setNewlyCreated(data);
+            setShowCreate(false);
+            setNewName("");
+            setCopied(false);
+            setRevealed(false);
+            load();
+        } catch (err: any) {
+            setFormError(err.message);
+        }
     };
 
     const copyKey = async (key: string) => {
@@ -60,9 +66,13 @@ export function ApiKeys() {
     const saveRename = async () => {
         const id = renameId();
         if (!id || !renameName().trim()) return;
-        await api.post(`/api-keys/${id}/rename`, { name: renameName().trim() });
-        setRenameId(null);
-        load();
+        try {
+            await api.post(`/api-keys/${id}/rename`, { name: renameName().trim() });
+            setRenameId(null);
+            load();
+        } catch (err: any) {
+            alert(err.message);
+        }
     };
 
     const cancelRename = () => {
@@ -71,8 +81,12 @@ export function ApiKeys() {
 
     const revoke = async (id: string, name: string) => {
         if (!confirm(`Revoke API key "${name}"? This action cannot be undone.`)) return;
-        await api.del(`/api-keys/${id}`);
-        load();
+        try {
+            await api.del(`/api-keys/${id}`);
+            load();
+        } catch (err: any) {
+            alert(err.message);
+        }
     };
 
     const formatDate = (d: string | null) => {
@@ -212,6 +226,9 @@ export function ApiKeys() {
                 <div class="modal-overlay" onClick={() => setShowCreate(false)}>
                     <div class="modal" onClick={(e) => e.stopPropagation()}>
                         <h2>Create API Key</h2>
+                        <Show when={formError()}>
+                            <div class="error-msg">{formError()}</div>
+                        </Show>
                         <div class="form-group">
                             <label>Name</label>
                             <input

@@ -12,6 +12,7 @@ export function Settings() {
     const [redirectUrl, setRedirectUrl] = createSignal("");
     const [hidePoweredBy, setHidePoweredBy] = createSignal(false);
     const [saveMsg, setSaveMsg] = createSignal("");
+    const [saveSuccess, setSaveSuccess] = createSignal(false);
 
     onMount(async () => {
         const data = await api.get("/settings");
@@ -41,6 +42,7 @@ export function Settings() {
 
     const saveCheckout = async () => {
         setSaveMsg("");
+        setSaveSuccess(false);
         try {
             await api.put("/settings/checkout", {
                 successRedirectUrl: redirectUrl(),
@@ -50,8 +52,10 @@ export function Settings() {
                 },
             });
             setSaveMsg("Saved!");
+            setSaveSuccess(true);
         } catch (err: any) {
             setSaveMsg(err.message);
+            setSaveSuccess(false);
         }
     };
 
@@ -89,7 +93,7 @@ export function Settings() {
                     <div class="flex items-center gap-3">
                         <button class="btn btn-primary" onClick={saveCheckout}>Save changes</button>
                         <Show when={saveMsg()}>
-                            <span class="text-sm text-success">{saveMsg()}</span>
+                            <span class={`text-sm ${saveSuccess() ? "text-success" : "text-danger"}`}>{saveMsg()}</span>
                         </Show>
                     </div>
                 </div>
