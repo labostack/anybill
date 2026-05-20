@@ -12,6 +12,7 @@ import { Tags, Summary, Description, Returns } from "@tsed/schema";
 import { AdminGuard } from "../../core/AdminGuard";
 import { AppDataSource } from "../../core/datasource";
 import { Subscriber } from "../../entities/Subscriber";
+import { Squad } from "../../entities/Squad";
 import { BillingService } from "../../services/BillingService";
 import { UpdateSubscriberBody } from "../../models/SubscriberModels";
 import { SubscriberListQuery } from "../../models/QueryModels";
@@ -48,16 +49,29 @@ export class SubscribersController {
         return { items, total, page, limit };
     }
 
-    /** Get subscriber details with related subscription and invoices. */
+    /** Get subscriber details with related subscription, invoices, and squad. */
     @Get("/:id")
     @Summary("Get subscriber details")
-    @Description("Returns a subscriber with their subscription plan and invoice history.")
+    @Description("Returns a subscriber with their subscription plan, invoice history, and squad (if any).")
     @Returns(200)
     @Returns(404)
     async get(@PathParams("id") id: string) {
         const sub = await this.repo().findOne({ where: { id }, relations: ["subscription", "invoices"] });
         if (!sub) throw new NotFound("Subscriber not found");
-        return sub;
+
+        // Load squad owned by this subscriber (if any)
+        const squad = await AppDataSource.getRepository(Squad).findOne({
+            where: { ownerId: id },
+            relations: ["members"],
+        });
+
+        return {
+            ...sub,
+            squad: squad ? {
+                ...squad,
+                members: squad.members.filter((m: any) => m.status === "active"),
+            } : null,
+        };
     }
 
     /** Update subscriber fields (status, metadata). */

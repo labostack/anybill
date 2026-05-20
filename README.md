@@ -1,10 +1,10 @@
 <p align="center">
-  <strong>anybill</strong>
+  <h1 align="center">anybill</h1>
 </p>
 
 <p align="center">
-  Lightweight, self-hosted, provider-agnostic billing platform.<br>
-  Connect any payment provider through a simple plugin system.
+  <strong>Self-hosted, provider-agnostic billing platform.</strong><br/>
+  <span>Connect any payment provider through a decorator-based SDK. One container, zero dependencies.</span>
 </p>
 
 <p align="center">
@@ -14,30 +14,42 @@
   <a href="https://ghcr.io/dortanes/anybill"><img src="https://img.shields.io/badge/ghcr.io-anybill-blue" alt="Docker"></a>
 </p>
 
+<p align="center">
+  <a href="#quick-start">Quick Start</a> &bull;
+  <a href="#creating-a-provider">Providers</a> &bull;
+  <a href="#sdk">SDK</a> &bull;
+  <a href="#api-reference">API</a> &bull;
+  <a href="CONTRIBUTING.md">Contributing</a>
+</p>
+
 ---
 
-## Features
+## What is AnyBill?
 
-- **Headless** — API-first, no frontend lock-in
-- **Provider-agnostic** — Stripe, crypto, anything — just drop a plugin file
-- **Self-contained** — single container, SQLite, zero external dependencies
-- **Outgoing webhooks** — HMAC-signed events with exponential backoff retries
-- **Client portal** — subscriber self-service: cancel, renew, change plan
-- **SDK** — zero-dep TypeScript client for your backend
+AnyBill is a headless billing platform you deploy on your own infrastructure. It handles subscription management, payment processing, and subscriber lifecycle — while staying completely independent from any specific payment provider.
+
+Payment providers are connected through the `@anybill/sdk` — you extend a base class, add a few decorators, and drop the file into a `providers/` directory. AnyBill discovers it on startup. No forks, no config files, no rebuilds.
+
+- **Headless** — API-first. Bring your own frontend, or use the included admin dashboard and checkout UI.
+- **Provider-agnostic** — connect any payment gateway through the SDK's decorator-based provider system.
+- **Self-contained** — ships as a single Docker container with SQLite. No Redis, no Postgres, no external services.
+- **Group subscriptions** — built-in Squads: an owner pays, members get access. Auto-created on purchase of squad-enabled plans.
+- **Outgoing webhooks** — HMAC-SHA256 signed events dispatched to your endpoints with exponential backoff retries.
+- **Client portal** — encrypted-token-based subscriber self-service: cancel, renew, change plan.
 
 ## Quick Start
 
-> The recommended way to run AnyBill is via Docker Compose.
-
-**1. Create a project directory**
-
 ```bash
 mkdir anybill && cd anybill
-```
 
-**2. Create `docker-compose.yml`**
+# Generate required secrets
+cat > .env << EOF
+JWT_SECRET=$(openssl rand -hex 32)
+LINK_SECRET=$(openssl rand -hex 32)
+EOF
 
-```yaml
+# Create docker-compose.yml
+cat > docker-compose.yml << 'EOF'
 services:
   anybill:
     image: ghcr.io/dortanes/anybill:latest
@@ -45,6 +57,7 @@ services:
       - "3000:3000"
     environment:
       - JWT_SECRET=${JWT_SECRET}
+      - LINK_SECRET=${LINK_SECRET}
       - PROVIDERS=/providers
     volumes:
       - anybill-data:/data
@@ -52,124 +65,75 @@ services:
 
 volumes:
   anybill-data:
-```
+EOF
 
-**3. Create `.env`**
-
-```bash
-# Required — generate with: openssl rand -hex 32
-JWT_SECRET=your-secret-here
-```
-
-**4. Start**
-
-```bash
 docker compose up -d
 ```
 
+Open `http://localhost:3000/admin` to create your account.
+
 | Path | Description |
 | --- | --- |
-| `http://localhost:3000/admin` | Admin dashboard |
-| `http://localhost:3000/pay/s/:token` | Secure checkout page |
-| `http://localhost:3000/portal/:token` | Subscriber portal |
-| `http://localhost:3000/api/...` | API endpoints |
-
-On first visit to `/admin`, you'll be prompted to create an account and receive your initial API key.
-
-## Configuration
-
-All configuration is via environment variables.
-
-| Variable | Default | Description |
-| --- | --- | --- |
-| `JWT_SECRET` | — | **Required.** JWT signing key |
-| `LINK_SECRET` | derived from `JWT_SECRET` | Encryption key for checkout/portal links (AES-256-GCM) |
-| `DB_PATH` | `/data/anybill.db` | SQLite database file path |
-| `PROVIDERS` | — | Path to provider plugins directory |
-| `CHECKOUT_ORIGIN` | `http://localhost:3002` | Checkout domain (used in payment links and CORS) |
-| `ADMIN_ORIGIN` | `http://localhost:3001` | Admin domain (CORS) |
-| `JWT_EXPIRY` | `7d` | Admin session lifetime |
-| `BCRYPT_ROUNDS` | `12` | Password hashing cost factor |
-
-<details>
-<summary>Outgoing webhook settings</summary>
-
-| Variable | Default | Description |
-| --- | --- | --- |
-| `WEBHOOK_MAX_RETRIES` | `5` | Max delivery attempts |
-| `WEBHOOK_RETRY_DELAYS_MS` | `10000,60000,...` | Comma-separated retry delays |
-| `WEBHOOK_RETRY_POLL_MS` | `15000` | Retry worker poll interval |
-| `WEBHOOK_RETRY_BATCH` | `20` | Max retries per cycle |
-| `WEBHOOK_TIMEOUT_MS` | `10000` | HTTP timeout per delivery |
-| `WEBHOOK_MAX_BODY_LEN` | `2048` | Max response body to store |
-
-</details>
+| `/admin` | Admin dashboard |
+| `/pay/s/:token` | Checkout page |
+| `/portal/:token` | Subscriber self-service portal |
+| `/api/docs` | Interactive API documentation (Swagger) |
 
 ## Creating a Provider
 
-Providers are `.ts` or `.js` files in the `providers/` directory. AnyBill auto-discovers them on startup.
+Providers are TypeScript or JavaScript files that AnyBill auto-discovers from the `providers/` directory. Each provider extends `AnybillProvider` from `@anybill/sdk` and uses decorators to define payment lifecycle methods.
 
 ```
 providers/
-├── tsconfig.json      # { "compilerOptions": { "experimentalDecorators": true } }
-├── stripe.ts          # Provider implementation
-└── cloudpayments.ts   # Another provider
+├── tsconfig.json        # { "compilerOptions": { "experimentalDecorators": true } }
+├── stripe.ts
+└── cloudpayments.ts
 ```
-
-### Provider Implementation
 
 ```typescript
 import {
-  AnybillProvider,
-  ProviderCapability,
-  CreatePaymentLink,
-  ValidateWebhook,
-  IncomingWebhook,
-  PaymentLink,
-  Payment,
+  AnybillProvider, ProviderCapability,
+  CreatePaymentLink, ValidateWebhook, IncomingWebhook,
+  PaymentLink, Payment,
 } from "@anybill/sdk";
 
-class StripeProvider extends AnybillProvider {
-  get displayName() { return "Stripe"; }
+class MyProvider extends AnybillProvider {
+  get displayName() { return "My Gateway"; }
   get capabilities(): ProviderCapability[] { return ["one_time", "recurring"]; }
 
   @CreatePaymentLink()
   async createLink(ctx) {
-    const session = await stripe.checkout.sessions.create({ ... });
+    const session = await gateway.createSession({ amount: ctx.plan.amount });
     return PaymentLink.url(session.url).id(session.id);
   }
 
   @ValidateWebhook()
   verify(ctx) {
-    return stripe.webhooks.constructEvent(
-      ctx.body, ctx.headers["stripe-signature"], secret
-    );
+    return verifySignature(ctx.body, ctx.headers["x-signature"], secret);
   }
 
   @IncomingWebhook()
   async webhook(ctx) {
     const event = JSON.parse(ctx.body);
-    if (event.type === "checkout.session.completed") {
-      return Payment.id(event.data.object.id).confirm();
+    if (event.status === "paid") {
+      return Payment.id(event.id).confirm();
     }
     return Payment.ignore();
   }
 }
 
-export default { name: "stripe", provider: new StripeProvider() };
+export default { name: "my-gateway", provider: new MyProvider() };
 ```
-
-### Decorators
 
 | Decorator | Purpose |
 | --- | --- |
-| `@CreatePaymentLink()` | Generate a payment URL |
-| `@ValidateWebhook()` | Verify incoming webhook signature |
-| `@IncomingWebhook()` | Process webhook payload |
-| `@RefundPayment()` | Issue a refund |
+| `@CreatePaymentLink()` | Generate a payment URL for the subscriber |
+| `@ValidateWebhook()` | Verify the authenticity of an incoming webhook |
+| `@IncomingWebhook()` | Process the webhook payload and return a payment action |
+| `@RefundPayment()` | Issue a refund through the provider |
 | `@CancelPayment()` | Cancel a pending payment |
 
-> See [`example/`](example/) for a complete working setup.
+See [`example/`](example/) for a complete reference setup.
 
 ## SDK
 
@@ -185,113 +149,111 @@ const client = new AnybillSDK({
   apiKey: "ak_...",
 });
 
-// Check if a user has an active subscription
-const subscribers = await client.getSubscriberByUid("user_123");
-const isActive = subscribers.some((s) => s.status === "active");
+// Check if a user has access (direct subscription or squad membership)
+const access = await client.checkAccess("user_123");
 
-// Create a secure checkout link
-const link = await client.createCheckoutLink("plan_uuid", "user_123");
-// Redirect user to link.url
+// Generate a checkout link
+const { url } = await client.createCheckoutLink("plan_id", "user_123");
 
-// Create a portal link for subscriber self-service
+// Generate a self-service portal link
 const portal = await client.createPortalLink("user_123");
-// Redirect user to portal.url
+
+// Manage squad members
+await client.squads.addMember("squad_id", "friend_uid");
+const members = await client.squads.getMembers("squad_id");
 ```
 
-See the full SDK docs in [`packages/sdk/README.md`](packages/sdk/README.md).
+Full SDK reference: [`packages/sdk/README.md`](packages/sdk/README.md)
 
 ## Outgoing Webhooks
 
-AnyBill dispatches HMAC-SHA256 signed events to your endpoints:
-
-| Event | Trigger |
-| --- | --- |
-| `payment.confirmed` | Payment completed successfully |
-| `payment.failed` | Payment attempt failed |
-| `payment.refunded` | Payment refunded |
-| `payment.cancelled` | Payment cancelled |
-| `subscription.renewed` | Recurring subscription renewed |
-| `subscription.expired` | Subscription period ended |
-| `subscription.cancelled` | Subscription cancelled (via portal or admin) |
-
-Each delivery includes:
-
-| Header | Description |
-| --- | --- |
-| `X-Anybill-Signature` | HMAC-SHA256 signature |
-| `X-Anybill-Timestamp` | Unix timestamp (for replay protection) |
-| `X-Anybill-Event` | Event type |
-| `X-Anybill-Delivery-Id` | Unique delivery ID |
+AnyBill dispatches signed events to your configured endpoints. Each delivery includes HMAC-SHA256 signature, timestamp (replay protection), event type, and a unique delivery ID in the headers.
 
 Failed deliveries are retried with exponential backoff (10s → 1m → 5m → 30m → 1h).
 
-## API Overview
+| Event | Trigger |
+| --- | --- |
+| `payment.confirmed` | Payment completed |
+| `payment.failed` | Payment failed |
+| `payment.refunded` | Payment refunded |
+| `payment.cancelled` | Payment cancelled |
+| `subscription.renewed` | Recurring subscription renewed |
+| `subscription.expired` | Billing period ended without renewal |
+| `subscription.cancelled` | Subscription cancelled |
+| `squad.created` | Squad created on plan purchase |
+| `squad.dissolved` | Squad dissolved |
+| `squad.member_added` | Member added to squad |
+| `squad.member_removed` | Member removed from squad |
+
+## Configuration
+
+All configuration is via environment variables.
+
+| Variable | Default | Description |
+| --- | --- | --- |
+| `JWT_SECRET` | — | **Required.** JWT signing key |
+| `LINK_SECRET` | — | **Required.** Encryption key for checkout and portal links |
+| `DB_PATH` | `/data/anybill.db` | SQLite database path |
+| `PROVIDERS` | — | Path to provider plugins directory |
+| `CHECKOUT_ORIGIN` | `http://localhost:3002` | Checkout domain (CORS and payment links) |
+| `ADMIN_ORIGIN` | `http://localhost:3001` | Admin domain (CORS) |
+| `JWT_EXPIRY` | `7d` | Admin session lifetime |
+| `BCRYPT_ROUNDS` | `12` | Password hashing cost factor |
 
 <details>
-<summary>Admin API — <code>/api/admin</code> (JWT-protected)</summary>
+<summary>Webhook settings</summary>
+
+| Variable | Default | Description |
+| --- | --- | --- |
+| `WEBHOOK_MAX_RETRIES` | `5` | Maximum delivery attempts |
+| `WEBHOOK_RETRY_DELAYS_MS` | `10000,60000,...` | Comma-separated retry delays |
+| `WEBHOOK_RETRY_POLL_MS` | `15000` | Retry worker poll interval |
+| `WEBHOOK_RETRY_BATCH` | `20` | Maximum retries per cycle |
+| `WEBHOOK_TIMEOUT_MS` | `10000` | HTTP timeout per delivery |
+| `WEBHOOK_MAX_BODY_LEN` | `2048` | Maximum response body to store |
+
+</details>
+
+## API Reference
+
+Interactive documentation is available at `/api/docs` when the server is running.
+
+<details>
+<summary>Admin API — <code>/api/admin</code></summary>
+
+JWT-protected. Manages plans, subscribers, invoices, settings, API keys, and webhook endpoints.
 
 | Method | Path | Description |
 | --- | --- | --- |
-| `POST` | `/auth/setup` | Initial account registration |
-| `POST` | `/auth/login` | Login (returns JWT cookie) |
-| `POST` | `/auth/logout` | Logout (clears cookie) |
-| `GET` | `/auth/status` | Check initialization state |
-| `GET/POST/PUT/DELETE` | `/subscriptions[/:id]` | CRUD subscription plans |
-| `GET/PUT` | `/subscribers[/:id]` | List/update subscribers |
-| `POST` | `/subscribers/:id/cancel` | Cancel a subscription |
-| `POST` | `/subscribers/:id/refund` | Refund a subscriber |
-| `GET` | `/invoices` | List invoices (filterable) |
-| `GET` | `/dashboard/stats` | Revenue and subscriber analytics |
+| `POST` | `/auth/setup` | Initial account creation |
+| `POST` | `/auth/login` | Login |
+| `POST` | `/auth/logout` | Logout |
+| `GET` | `/auth/status` | Check if account exists |
+| `GET/POST/PUT/DELETE` | `/subscriptions[/:id]` | Subscription plans |
+| `GET/PUT` | `/subscribers[/:id]` | Subscribers |
+| `POST` | `/subscribers/:id/cancel` | Cancel subscription |
+| `POST` | `/subscribers/:id/refund` | Refund subscriber |
+| `GET` | `/invoices` | Invoices |
+| `GET` | `/dashboard/stats` | Revenue analytics |
 | `GET/PUT` | `/settings` | Account settings |
 | `PUT` | `/settings/password` | Change password |
-| `PUT` | `/settings/checkout` | Checkout page config |
-| `GET` | `/settings/providers` | List loaded providers |
-| `GET/POST/DELETE` | `/api-keys[/:id]` | Manage API keys |
-| `POST` | `/api-keys/:id/rename` | Rename an API key |
-| `GET/POST/PUT/DELETE` | `/webhooks[/:id]` | Manage webhook endpoints |
+| `PUT` | `/settings/checkout` | Checkout customization |
+| `GET` | `/settings/providers` | Loaded providers |
+| `GET/POST/DELETE` | `/api-keys[/:id]` | API keys |
+| `POST` | `/api-keys/:id/rename` | Rename API key |
+| `GET/POST/PUT/DELETE` | `/webhooks[/:id]` | Webhook endpoints |
 | `POST` | `/webhooks/:id/rotate-secret` | Rotate signing secret |
 | `POST` | `/webhooks/:id/test` | Send test event |
 | `GET` | `/webhooks/deliveries` | Delivery log |
-| `POST` | `/checkout-links` | Create a secure checkout link |
-| `POST` | `/portal-links` | Create a portal link |
+| `POST` | `/checkout-links` | Generate checkout link |
+| `POST` | `/portal-links` | Generate portal link |
 
 </details>
 
 <details>
-<summary>Checkout API — <code>/api/checkout</code> (public)</summary>
+<summary>SDK API — <code>/api/sdk</code></summary>
 
-| Method | Path | Description |
-| --- | --- | --- |
-| `GET` | `/resolve/:token` | Verify token, return checkout info |
-| `POST` | `/pay` | Initiate payment (requires token) |
-| `GET` | `/confirm/:invoiceId` | Poll payment status |
-
-</details>
-
-<details>
-<summary>Webhook API — <code>/api/webhook</code> (provider callbacks)</summary>
-
-| Method | Path | Description |
-| --- | --- | --- |
-| `POST` | `/:provider` | Incoming provider webhook |
-
-</details>
-
-<details>
-<summary>Portal API — <code>/api/portal</code> (token-protected)</summary>
-
-| Method | Path | Description |
-| --- | --- | --- |
-| `GET` | `/resolve/:token` | Verify token, return subscriber state |
-| `POST` | `/cancel` | Cancel subscription |
-| `POST` | `/change` | Change plan (returns checkout URL) |
-| `POST` | `/renew` | Renew subscription (returns checkout URL) |
-| `GET` | `/invoices` | Subscriber invoice history |
-
-</details>
-
-<details>
-<summary>SDK API — <code>/api/sdk</code> (API key-protected)</summary>
+API key-protected. Used by client applications via the TypeScript SDK.
 
 | Method | Path | Description |
 | --- | --- | --- |
@@ -299,8 +261,55 @@ Failed deliveries are retried with exponential backoff (10s → 1m → 5m → 30
 | `GET` | `/subscribers[?uid=]` | Find subscribers |
 | `GET` | `/subscribers/:id` | Get subscriber by ID |
 | `GET` | `/invoices/:id` | Get invoice by ID |
-| `POST` | `/checkout-links` | Create a secure checkout link |
-| `POST` | `/portal-links` | Create a portal link |
+| `POST` | `/checkout-links` | Create checkout link |
+| `POST` | `/portal-links` | Create portal link |
+| `GET` | `/access` | Check access (direct or squad) |
+| `POST` | `/squads` | Create a squad |
+| `GET` | `/squads/:id` | Get squad by ID |
+| `GET` | `/squads` | Find squad by owner UID |
+| `DELETE` | `/squads/:id` | Dissolve a squad |
+| `POST` | `/squads/:id/members` | Add member |
+| `DELETE` | `/squads/:id/members/:uid` | Remove member |
+| `GET` | `/squads/:id/members` | List members |
+
+</details>
+
+<details>
+<summary>Checkout API — <code>/api/checkout</code></summary>
+
+Public. Powers the checkout flow.
+
+| Method | Path | Description |
+| --- | --- | --- |
+| `GET` | `/resolve/:token` | Resolve checkout token |
+| `POST` | `/pay` | Initiate payment |
+| `GET` | `/confirm/:invoiceId` | Poll payment status |
+
+</details>
+
+<details>
+<summary>Portal API — <code>/api/portal</code></summary>
+
+Token-protected. Subscriber self-service.
+
+| Method | Path | Description |
+| --- | --- | --- |
+| `GET` | `/resolve/:token` | Subscriber state and squad role |
+| `POST` | `/cancel` | Cancel subscription |
+| `POST` | `/change` | Change plan |
+| `POST` | `/renew` | Renew subscription |
+| `GET` | `/invoices` | Invoice history |
+
+</details>
+
+<details>
+<summary>Webhook API — <code>/api/webhook</code></summary>
+
+Provider callbacks.
+
+| Method | Path | Description |
+| --- | --- | --- |
+| `POST` | `/:provider` | Incoming provider webhook |
 
 </details>
 
@@ -309,14 +318,14 @@ Failed deliveries are retried with exponential backoff (10s → 1m → 5m → 30
 ```
 anybill/
 ├── packages/
-│   ├── backend/     Ts.ED + TypeORM + SQLite
-│   ├── admin/       Solid.js admin dashboard
-│   ├── checkout/    Solid.js checkout SPA
-│   └── sdk/         TypeScript SDK (@anybill/sdk)
-├── example/         Reference deployment with Stripe provider
-├── Dockerfile       Multi-stage production build
-├── Caddyfile        Reverse proxy (single-port in Docker)
-└── turbo.json       Turborepo pipeline
+│   ├── backend/          Ts.ED + TypeORM + SQLite
+│   ├── admin/            Solid.js admin dashboard
+│   ├── checkout/         Solid.js checkout SPA
+│   └── sdk/              TypeScript SDK (@anybill/sdk)
+├── example/              Reference provider setup
+├── Dockerfile            Multi-stage production build
+├── Caddyfile             Reverse proxy config
+└── turbo.json            Turborepo pipeline
 ```
 
 ## Development
@@ -327,7 +336,7 @@ cd anybill
 pnpm install
 
 cp .env.example .env
-# Set JWT_SECRET: openssl rand -hex 32
+# Set JWT_SECRET and LINK_SECRET (openssl rand -hex 32)
 
 pnpm dev
 ```
@@ -338,7 +347,11 @@ pnpm dev
 | Admin | http://localhost:3001 |
 | Checkout | http://localhost:3002 |
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for more details.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for development guidelines.
+
+## Support
+
+If you find AnyBill useful, consider giving it a ⭐ on GitHub — it helps others discover the project.
 
 ## License
 

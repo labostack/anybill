@@ -5,6 +5,7 @@ services:
       - "3000:3000"
     environment:
       - JWT_SECRET=${JWT_SECRET}
+      - LINK_SECRET=${LINK_SECRET}
       - PROVIDERS=/providers
     volumes:
       - anybill-data:/data

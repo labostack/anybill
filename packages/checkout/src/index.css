@@ -1054,6 +1054,49 @@ body {
     color: var(--text-muted);
 }
 
+/* ─── Portal Squad ─────────────────────────────────── */
+
+.portal-badge-info {
+    background: rgba(99, 179, 237, 0.12);
+    color: #63b3ed;
+}
+
+.portal-member-notice {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    padding: 18px 20px;
+    background: rgba(99, 179, 237, 0.06);
+    border: 1px solid rgba(99, 179, 237, 0.15);
+    border-radius: 12px;
+    margin-bottom: 8px;
+}
+
+.portal-member-notice-icon {
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 10px;
+    background: rgba(99, 179, 237, 0.1);
+    color: #63b3ed;
+    flex-shrink: 0;
+}
+
+.portal-member-notice-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: #e2e8f0;
+    margin-bottom: 4px;
+}
+
+.portal-member-notice-desc {
+    font-size: 13px;
+    color: #8899a6;
+    line-height: 1.5;
+}
+
 /* ─── Portal Mobile Responsive ─────────────────────── */
 
 @media (max-width: 768px) {

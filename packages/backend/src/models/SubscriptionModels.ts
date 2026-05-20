@@ -52,6 +52,14 @@ export class CreateSubscriptionBody {
     @Optional()
     @Property(Object)
     metadata?: Record<string, unknown> | null;
+
+    @Default(false)
+    squadEnabled!: boolean;
+
+    @Integer()
+    @Min(0)
+    @Default(0)
+    squadMaxMembers!: number;
 }
 
 /** Body for `PUT /api/admin/subscriptions/:id` — update a subscription plan. */
@@ -93,4 +101,12 @@ export class UpdateSubscriptionBody {
     @Optional()
     @Property(Object)
     metadata?: Record<string, unknown> | null;
+
+    @Optional()
+    squadEnabled?: boolean;
+
+    @Optional()
+    @Integer()
+    @Min(0)
+    squadMaxMembers?: number;
 }

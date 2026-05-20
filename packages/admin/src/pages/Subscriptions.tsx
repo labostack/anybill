@@ -52,7 +52,7 @@ export function Subscriptions() {
     const [showModal, setShowModal] = createSignal(false);
     const [editing, setEditing] = createSignal<any>(null);
     const [collapsed, setCollapsed] = createSignal<Record<string, boolean>>({});
-    const [form, setForm] = createSignal({ name: "", description: "", displayAmount: "", currency: "USD", interval: "month", intervalCount: "1", renewalMode: "manual" });
+    const [form, setForm] = createSignal({ name: "", description: "", displayAmount: "", currency: "USD", interval: "month", intervalCount: "1", renewalMode: "manual", squadEnabled: false, squadMaxMembers: "0" });
     const [formError, setFormError] = createSignal("");
     const [saving, setSaving] = createSignal(false);
 
@@ -87,7 +87,7 @@ export function Subscriptions() {
 
     const openCreate = () => {
         setEditing(null);
-        setForm({ name: "", description: "", displayAmount: "", currency: "USD", interval: "month", intervalCount: "1", renewalMode: "manual" });
+        setForm({ name: "", description: "", displayAmount: "", currency: "USD", interval: "month", intervalCount: "1", renewalMode: "manual", squadEnabled: false, squadMaxMembers: "0" });
         setFormError("");
         setShowModal(true);
     };
@@ -102,6 +102,8 @@ export function Subscriptions() {
             interval: sub.interval,
             intervalCount: String(sub.intervalCount),
             renewalMode: sub.renewalMode || "manual",
+            squadEnabled: sub.squadEnabled || false,
+            squadMaxMembers: String(sub.squadMaxMembers || 0),
         });
         setFormError("");
         setShowModal(true);
@@ -120,6 +122,8 @@ export function Subscriptions() {
                 interval: form().interval,
                 intervalCount: form().interval === "one_time" ? 1 : Number(form().intervalCount),
                 renewalMode: form().interval === "one_time" ? "manual" : form().renewalMode,
+                squadEnabled: form().squadEnabled,
+                squadMaxMembers: Number(form().squadMaxMembers),
             };
             if (editing()) {
                 await api.put(`/subscriptions/${editing().id}`, body);
@@ -250,6 +254,11 @@ export function Subscriptions() {
                                                             <span>{sub.activeSubscribers || 0}</span>
                                                         </div>
                                                         <div class="plan-variant-status">
+                                                            <Show when={sub.squadEnabled}>
+                                                                <span class="badge badge-info" title="Group/family subscription enabled">
+                                                                    Squad · {sub.squadMaxMembers ? `max ${sub.squadMaxMembers}` : '∞'}
+                                                                </span>
+                                                            </Show>
                                                             <Show when={sub.renewalMode === "provider_managed"}>
                                                                 <span class="badge badge-info" title="Provider manages recurring billing">
                                                                     Auto-renew
@@ -389,6 +398,30 @@ export function Subscriptions() {
                                 <div class="form-hint" style="color: var(--warning)">One-time plans are always manual</div>
                             </Show>
                         </div>
+                        <div class="form-group">
+                            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer">
+                                <input
+                                    type="checkbox"
+                                    checked={form().squadEnabled}
+                                    onChange={(e) => setForm({ ...form(), squadEnabled: e.target.checked })}
+                                    style="width: 16px; height: 16px; accent-color: var(--primary)"
+                                />
+                                Enable Squads (group/family subscriptions)
+                            </label>
+                            <div class="form-hint">Allow subscribers to create squads and share access with members</div>
+                        </div>
+                        <Show when={form().squadEnabled}>
+                            <div class="form-group">
+                                <label>Max members per squad</label>
+                                <input
+                                    type="number"
+                                    min="0"
+                                    value={form().squadMaxMembers}
+                                    onInput={(e) => setForm({ ...form(), squadMaxMembers: e.target.value })}
+                                />
+                                <div class="form-hint">Maximum members excluding the owner. 0 = unlimited.</div>
+                            </div>
+                        </Show>
                         <div class="modal-actions">
                             <button class="btn btn-ghost" onClick={() => setShowModal(false)}>Cancel</button>
                             <button class="btn btn-primary" onClick={save} disabled={saving()}>

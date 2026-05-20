@@ -8,9 +8,8 @@
  *
  * Format: `base64url(iv[12] + ciphertext + authTag[16])`
  *
- * Uses `LINK_SECRET` env var for the encryption key. If not set, derives
- * a key from `JWT_SECRET` for backward compatibility. Production deployments
- * should set `LINK_SECRET` explicitly.
+ * Uses `LINK_SECRET` env var for the encryption key.
+ * The application will not start without it.
  */
 
 import { createCipheriv, createDecipheriv, randomBytes, createHmac } from "crypto";
@@ -26,21 +25,18 @@ const ALGORITHM = "aes-256-gcm";
 let _cachedKey: Buffer | null = null;
 
 /**
- * Derive a 32-byte AES key from LINK_SECRET (preferred) or JWT_SECRET (fallback).
+ * Derive a 32-byte AES key from LINK_SECRET.
  *
- * When LINK_SECRET is not set, derives a deterministic key from JWT_SECRET
- * using HMAC-SHA256 with a domain separator. This ensures the derived key
- * is always distinct from the raw JWT_SECRET value.
+ * @throws {Error} If LINK_SECRET is not set.
  */
 function getKey(): Buffer {
     if (_cachedKey) return _cachedKey;
 
-    const secret = process.env.LINK_SECRET
-        || createHmac("sha256", process.env.JWT_SECRET!)
-            .update("anybill:link-signing")
-            .digest("hex");
+    if (!process.env.LINK_SECRET) {
+        throw new Error("[anybill] LINK_SECRET environment variable is required. Refusing to start.");
+    }
 
-    _cachedKey = createHmac("sha256", secret)
+    _cachedKey = createHmac("sha256", process.env.LINK_SECRET)
         .update("anybill:aes-key")
         .digest();
 

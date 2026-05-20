@@ -17,12 +17,13 @@ import { Invoice } from "./Invoice";
  *
  * | Status      | Meaning                                         |
  * |-------------|-------------------------------------------------|
+ * | `pending`   | Created, awaiting first payment confirmation.    |
  * | `active`    | Currently subscribed, within the billing period. |
  * | `cancelled` | Subscription was explicitly cancelled.           |
  * | `expired`   | Billing period ended without renewal.            |
  * | `past_due`  | Payment failed, grace period may apply.          |
  */
-export type SubscriberStatus = "active" | "cancelled" | "expired" | "past_due";
+export type SubscriberStatus = "pending" | "active" | "cancelled" | "expired" | "past_due";
 
 @Entity()
 export class Subscriber {
@@ -42,7 +43,7 @@ export class Subscriber {
     subscriptionId!: string;
 
     /** Current lifecycle status. */
-    @Column({ type: "varchar", default: "active" })
+    @Column({ type: "varchar", default: "pending" })
     status!: SubscriberStatus;
 
     /** Start of the current billing period. */

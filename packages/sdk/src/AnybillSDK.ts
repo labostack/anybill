@@ -17,7 +17,7 @@
  * ```
  */
 
-import type { AnybillSDKConfig, Subscription, Subscriber, Invoice, CheckoutLink, PortalLink } from "./types";
+import type { AnybillSDKConfig, Subscription, Subscriber, Invoice, CheckoutLink, PortalLink, Squad, SquadMember, AccessCheck } from "./types";
 
 /**
  * AnyBill SDK client.
@@ -71,6 +71,25 @@ export class AnybillSDK {
                 "Content-Type": "application/json",
             },
             body: JSON.stringify(body),
+        });
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({ message: res.statusText }));
+            throw new Error(`AnybillSDK: ${err.message}`);
+        }
+        return res.json();
+    }
+
+    /**
+     * Perform an authenticated DELETE request to the SDK API.
+     *
+     * @param path - Endpoint path (relative to `/api/sdk`).
+     * @returns Parsed JSON response.
+     * @throws {Error} If the response is not OK.
+     */
+    private async del<T>(path: string): Promise<T> {
+        const res = await fetch(`${this.baseUrl}/api/sdk${path}`, {
+            method: "DELETE",
+            headers: { "X-Api-Key": this.apiKey },
         });
         if (!res.ok) {
             const err = await res.json().catch(() => ({ message: res.statusText }));
@@ -144,5 +163,86 @@ export class AnybillSDK {
         if (ttl !== undefined) body.ttl = ttl;
         return this.post("/portal-links", body);
     }
+
+    /**
+     * Check if a user has access — either through a direct subscription
+     * or through a squad membership.
+     *
+     * @param uid            - External user identifier.
+     * @param subscriptionId - Optional: limit check to a specific plan.
+     * @returns Access check result.
+     */
+    async checkAccess(uid: string, subscriptionId?: string): Promise<AccessCheck> {
+        let path = `/access?uid=${encodeURIComponent(uid)}`;
+        if (subscriptionId) path += `&subscription_id=${encodeURIComponent(subscriptionId)}`;
+        return this.request(path);
+    }
+
+    /**
+     * Squad management methods.
+     *
+     * Squads enable group/family subscriptions where an owner pays and
+     * members get access through the owner's subscription.
+     */
+    readonly squads = {
+        /**
+         * Create a squad for a subscriber.
+         *
+         * @param subscriberId - AnyBill subscriber UUID (the owner).
+         */
+        create: (subscriberId: string): Promise<Squad> =>
+            this.post("/squads", { subscriberId }),
+
+        /**
+         * Get a squad by ID.
+         *
+         * @param id - Squad UUID.
+         */
+        get: (id: string): Promise<Squad> =>
+            this.request(`/squads/${id}`),
+
+        /**
+         * Find a squad by the owner's external user ID.
+         *
+         * @param ownerUid       - Owner's external user ID.
+         * @param subscriptionId - Subscription plan ID.
+         */
+        getByOwnerUid: (ownerUid: string, subscriptionId: string): Promise<Squad[]> =>
+            this.request(`/squads?owner_uid=${encodeURIComponent(ownerUid)}&subscription_id=${encodeURIComponent(subscriptionId)}`),
+
+        /**
+         * Dissolve a squad, removing all members.
+         *
+         * @param id - Squad UUID.
+         */
+        dissolve: (id: string): Promise<{ dissolved: boolean }> =>
+            this.del(`/squads/${id}`),
+
+        /**
+         * Add a member to a squad.
+         *
+         * @param squadId - Squad UUID.
+         * @param uid     - External user ID of the member.
+         */
+        addMember: (squadId: string, uid: string): Promise<SquadMember> =>
+            this.post(`/squads/${squadId}/members`, { uid }),
+
+        /**
+         * Remove a member from a squad.
+         *
+         * @param squadId - Squad UUID.
+         * @param uid     - External user ID of the member.
+         */
+        removeMember: (squadId: string, uid: string): Promise<{ removed: boolean }> =>
+            this.del(`/squads/${squadId}/members/${encodeURIComponent(uid)}`),
+
+        /**
+         * List active members of a squad.
+         *
+         * @param squadId - Squad UUID.
+         */
+        getMembers: (squadId: string): Promise<SquadMember[]> =>
+            this.request(`/squads/${squadId}/members`),
+    };
 
 }

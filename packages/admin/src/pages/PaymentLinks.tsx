@@ -11,6 +11,7 @@ interface Subscription {
     amount: number;
     currency: string;
     interval: string;
+    intervalCount: number;
 }
 
 interface GeneratedLink {
@@ -220,7 +221,7 @@ export function PaymentLinks() {
                             <For each={subs()}>
                                 {(s) => (
                                     <option value={s.id}>
-                                        {s.name} — {formatPrice(s.amount, s.currency)} / {s.interval}
+                                        {s.name} — {formatPrice(s.amount, s.currency)} / {s.interval === "one_time" ? "one-time" : s.intervalCount > 1 ? `every ${s.intervalCount} ${s.interval}s` : s.interval}
                                     </option>
                                 )}
                             </For>

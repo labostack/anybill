@@ -33,7 +33,7 @@ export class PaginationQuery {
 /** Query params for `GET /api/admin/subscribers`. */
 export class SubscriberListQuery extends PaginationQuery {
     @Optional()
-    @Enum("active", "cancelled", "expired", "past_due")
+    @Enum("pending", "active", "cancelled", "expired", "past_due")
     status?: string;
 }
 

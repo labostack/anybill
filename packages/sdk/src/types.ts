@@ -17,6 +17,10 @@ export interface Subscription {
     intervalCount: number;
     isActive: boolean;
     metadata: Record<string, any> | null;
+    /** Whether this plan supports squads (group/family subscriptions). */
+    squadEnabled: boolean;
+    /** Maximum members per squad (excluding the owner). 0 = unlimited. */
+    squadMaxMembers: number;
 }
 
 /** Subscriber (a user with an active or past subscription). */
@@ -26,7 +30,7 @@ export interface Subscriber {
     uid: string;
     subscriptionId: string;
     subscription?: Subscription;
-    status: "active" | "cancelled" | "expired" | "past_due";
+    status: "pending" | "active" | "cancelled" | "expired" | "past_due";
     currentPeriodStart: string | null;
     currentPeriodEnd: string | null;
     metadata: Record<string, any> | null;
@@ -73,4 +77,43 @@ export interface PortalLink {
     url: string;
     /** ISO 8601 expiration timestamp. */
     expiresAt: string;
+}
+
+/** Squad — a group/family subscription unit. */
+export interface Squad {
+    id: string;
+    /** Internal AnyBill subscriber ID of the owner. */
+    ownerId: string;
+    /** Maximum members allowed (excluding owner). 0 = unlimited. */
+    maxMembers: number;
+    /** Active members of the squad. */
+    members: SquadMember[];
+    createdAt: string;
+    updatedAt: string;
+}
+
+/** A member of a squad, identified by external user ID. */
+export interface SquadMember {
+    id: string;
+    /** External user ID from your application. */
+    uid: string;
+    status: "active" | "removed";
+    joinedAt: string;
+    removedAt: string | null;
+}
+
+/** Result of an access check. */
+export interface AccessCheck {
+    /** Whether the user has access. */
+    hasAccess: boolean;
+    /** How the user has access (direct subscription or squad membership). */
+    accessType?: "direct" | "squad";
+    /** Squad ID (only when accessType is "squad"). */
+    squadId?: string;
+    /** Owner's external user ID (only when accessType is "squad"). */
+    ownerUid?: string;
+    /** The subscriber record (owner in case of squad access). */
+    subscriber?: Subscriber;
+    /** The subscription plan. */
+    subscription?: Subscription;
 }

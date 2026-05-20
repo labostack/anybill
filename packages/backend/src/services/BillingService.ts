@@ -18,6 +18,7 @@ import { Invoice } from "../entities/Invoice";
 import { Subscriber } from "../entities/Subscriber";
 import { Subscription, type SubscriptionInterval } from "../entities/Subscription";
 import { Account } from "../entities/Account";
+import { Squad } from "../entities/Squad";
 import { ProviderLoader } from "./ProviderLoader";
 import { OutgoingWebhookService } from "./OutgoingWebhookService";
 
@@ -90,7 +91,7 @@ export class BillingService implements OnInit {
         // Find or create subscriber.
         let subscriber = await subscriberRepo.findOneBy({ uid, subscriptionId });
         if (!subscriber) {
-            subscriber = subscriberRepo.create({ uid, subscriptionId, status: "active" });
+            subscriber = subscriberRepo.create({ uid, subscriptionId, status: "pending" });
             await subscriberRepo.save(subscriber);
         }
 
@@ -246,6 +247,27 @@ export class BillingService implements OnInit {
                 subscriber.currentPeriodEnd = computePeriodEnd(subscription.interval, subscription.intervalCount);
             }
             await subscriberRepo.save(subscriber);
+
+            // Auto-create squad for squad-enabled plans.
+            if (subscription && subscription.squadEnabled) {
+                const squadRepo = AppDataSource.getRepository(Squad);
+                const existingSquad = await squadRepo.findOneBy({ ownerId: subscriber.id });
+                if (!existingSquad) {
+                    const squad = squadRepo.create({
+                        ownerId: subscriber.id,
+                        maxMembers: subscription.squadMaxMembers || 0,
+                    });
+                    await squadRepo.save(squad);
+                    this.logger.info(`Auto-created squad ${squad.id} for subscriber ${subscriber.id} on plan ${subscription.name}`);
+
+                    await this.outgoingWebhooks.dispatch("squad.created", {
+                        squadId: squad.id,
+                        ownerUid: subscriber.uid,
+                        subscriberId: subscriber.id,
+                        subscriptionId: subscription.id,
+                    });
+                }
+            }
         }
 
         await this.outgoingWebhooks.dispatch("payment.confirmed", {

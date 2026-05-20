@@ -78,7 +78,7 @@ refactor: extract webhook retry logic into service
 
 - **TypeScript** throughout — no `any` unless unavoidable
 - **JSDoc** on all exported functions, classes, and interfaces
-- **Zod** schemas for all API input validation (see `packages/backend/src/core/validation.ts`)
+- **@tsed/schema** decorators for all API input validation (see `packages/backend/src/models/`)
 - Keep `console.log` calls prefixed with `[anybill]` or `[billing]`
 
 ### Pull Request Process

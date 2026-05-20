@@ -45,6 +45,7 @@ export function Subscribers() {
                 <div class="filters">
                     <select value={statusFilter()} onChange={(e) => { setStatusFilter(e.target.value); load(); }}>
                         <option value="">All statuses</option>
+                        <option value="pending">Pending</option>
                         <option value="active">Active</option>
                         <option value="cancelled">Cancelled</option>
                         <option value="expired">Expired</option>

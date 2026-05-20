@@ -67,6 +67,8 @@ interface PlanInfo {
 
 interface PortalData {
     uid: string;
+    role: "direct" | "owner" | "member";
+    squad: { id: string; maxMembers: number; memberCount: number; ownerUid?: string } | null;
     subscriber: SubscriberInfo | null;
     invoices: InvoiceInfo[];
     availablePlans: PlanInfo[];
@@ -211,17 +213,22 @@ export function PortalPage() {
 
     // ─── Computed ────────────────────────────────────────────────
 
+    const isMember = () => data()?.role === "member";
+
     const canCancel = () => {
+        if (isMember()) return false;
         const sub = data()?.subscriber;
         return sub ? sub.status === "active" && sub.subscription.interval !== "one_time" : false;
     };
 
     const canRenew = () => {
+        if (isMember()) return false;
         const sub = data()?.subscriber;
         return sub ? ["expired", "past_due", "cancelled"].includes(sub.status) && sub.subscription.interval !== "one_time" : false;
     };
 
     const canChange = () => {
+        if (isMember()) return false;
         const sub = data()?.subscriber;
         return sub ? sub.subscription.interval !== "one_time" : false;
     };
@@ -294,6 +301,12 @@ export function PortalPage() {
                                             {/* Status & period */}
                                             <div class="portal-status-bar">
                                                 <span class={statusBadgeClass(sub.status)}>{sub.status}</span>
+                                                <Show when={data()!.role === "owner"}>
+                                                    <span class="portal-badge portal-badge-info">Squad owner</span>
+                                                </Show>
+                                                <Show when={data()!.role === "member"}>
+                                                    <span class="portal-badge portal-badge-info">Squad member</span>
+                                                </Show>
                                                 <Show when={sub.subscription.interval !== "one_time" && sub.currentPeriodEnd}>
                                                     <span class="portal-period-text">
                                                         <Clock size={13} />
@@ -372,6 +385,19 @@ export function PortalPage() {
 
                                     return (
                                         <div class="portal-action-list">
+                                            <Show when={isMember()}>
+                                                <div class="portal-member-notice">
+                                                    <div class="portal-member-notice-icon">
+                                                        <Lock size={20} />
+                                                    </div>
+                                                    <div class="portal-member-notice-content">
+                                                        <div class="portal-member-notice-title">You're a squad member</div>
+                                                        <div class="portal-member-notice-desc">
+                                                            Your access is provided by the subscription owner. Contact them to manage the plan.
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </Show>
                                             {/* Active recurring: can change plan or cancel */}
                                             <Show when={canChange() && changePlans().length > 0}>
                                                 <button

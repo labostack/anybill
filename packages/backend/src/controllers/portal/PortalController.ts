@@ -22,6 +22,8 @@ import { Subscriber } from "../../entities/Subscriber";
 import { Subscription } from "../../entities/Subscription";
 import { Invoice } from "../../entities/Invoice";
 import { Account } from "../../entities/Account";
+import { Squad } from "../../entities/Squad";
+import { SquadMember } from "../../entities/SquadMember";
 import { BillingService } from "../../services/BillingService";
 import { OutgoingWebhookService } from "../../services/OutgoingWebhookService";
 import { verifyPortalToken } from "../../core/portalToken";
@@ -106,15 +108,86 @@ export class PortalController {
         // Rank by status priority.
         const statusPriority: Record<string, number> = {
             active: 0,
-            past_due: 1,
-            expired: 2,
-            cancelled: 3,
+            pending: 1,
+            past_due: 2,
+            expired: 3,
+            cancelled: 4,
         };
         allSubscribers.sort(
             (a, b) => (statusPriority[a.status] ?? 99) - (statusPriority[b.status] ?? 99),
         );
 
         const subscriber = allSubscribers[0] ?? null;
+
+        // Fetch account early — needed for both member and owner responses.
+        const account = await AppDataSource.getRepository(Account).findOne({ where: {} });
+
+        // Check if this subscriber owns a squad
+        let role: "direct" | "owner" | "member" = "direct";
+        let squadInfo: any = null;
+
+        if (subscriber) {
+            const squad = await AppDataSource.getRepository(Squad).findOne({
+                where: { ownerId: subscriber.id },
+                relations: ["members"],
+            });
+            if (squad) {
+                role = "owner";
+                const activeMembers = squad.members.filter(m => m.status === "active");
+                squadInfo = {
+                    id: squad.id,
+                    maxMembers: squad.maxMembers,
+                    memberCount: activeMembers.length,
+                };
+            }
+        }
+
+        // If uid has no subscriber record, check if they're a squad member.
+        if (!subscriber) {
+            const membership = await AppDataSource.getRepository(SquadMember)
+                .createQueryBuilder("m")
+                .innerJoinAndSelect("m.squad", "s")
+                .innerJoinAndSelect("s.owner", "o")
+                .innerJoinAndSelect("o.subscription", "sub")
+                .where("m.uid = :uid", { uid })
+                .andWhere("m.status = :memberStatus", { memberStatus: "active" })
+                .andWhere("o.status = :ownerStatus", { ownerStatus: "active" })
+                .getOne();
+
+            if (membership) {
+                role = "member";
+                const owner = membership.squad.owner;
+                // Build a synthetic subscriber response from the owner's data
+                // so the portal can display the plan info
+                return {
+                    uid,
+                    role,
+                    squad: {
+                        id: membership.squad.id,
+                        ownerUid: owner.uid,
+                    },
+                    subscriber: {
+                        id: owner.id,
+                        subscription: {
+                            id: owner.subscription.id,
+                            name: owner.subscription.name,
+                            description: owner.subscription.description,
+                            amount: owner.subscription.amount,
+                            currency: owner.subscription.currency,
+                            interval: owner.subscription.interval,
+                            intervalCount: owner.subscription.intervalCount,
+                            renewalMode: owner.subscription.renewalMode,
+                        },
+                        status: owner.status,
+                        currentPeriodStart: owner.currentPeriodStart,
+                        currentPeriodEnd: owner.currentPeriodEnd,
+                    },
+                    invoices: [],
+                    availablePlans: [],
+                    checkoutConfig: account?.checkoutConfig || {},
+                };
+            }
+        }
 
         // Load invoices for the active subscriber.
         let invoices: Invoice[] = [];
@@ -132,10 +205,10 @@ export class PortalController {
             order: { createdAt: "ASC" },
         });
 
-        const account = await AppDataSource.getRepository(Account).findOne({ where: {} });
-
         return {
             uid,
+            role,
+            squad: squadInfo,
             subscriber: subscriber
                 ? {
                       id: subscriber.id,

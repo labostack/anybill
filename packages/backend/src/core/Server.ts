@@ -58,6 +58,7 @@ import { WebhookController } from "../controllers/webhook/WebhookController";
 
 // ─── SDK Controllers ────────────────────────────────────────────────
 import { SdkController } from "../controllers/sdk/SdkController";
+import { SquadController } from "../controllers/sdk/SquadController";
 
 // ─── Health ─────────────────────────────────────────────────────────
 import { HealthController } from "../controllers/HealthController";
@@ -83,7 +84,7 @@ import { HealthController } from "../controllers/HealthController";
         "/api/checkout": [CheckoutController],
         "/api/portal": [PortalController],
         "/api/webhook": [WebhookController],
-        "/api/sdk": [SdkController],
+        "/api/sdk": [SdkController, SquadController],
         "/": [HealthController],
     },
     swagger: [

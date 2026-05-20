@@ -39,6 +39,22 @@ const portal = await client.createPortalLink("user_123");
 // portal.url → redirect user to manage their subscription
 ```
 
+```typescript
+// --- Squads (group subscriptions) ---
+
+// Check access (covers both direct subscribers and squad members)
+const access = await client.checkAccess("user-123");
+if (access.hasAccess) {
+  console.log(access.accessType); // "direct" or "squad"
+}
+
+// Squad is auto-created when purchasing a squad-enabled plan.
+// To manage members:
+const members = await client.squads.getMembers("squad-id");
+await client.squads.addMember("squad-id", "friend-uid");
+await client.squads.removeMember("squad-id", "friend-uid");
+```
+
 ### Methods
 
 | Method                     | Description                          |
@@ -49,6 +65,14 @@ const portal = await client.createPortalLink("user_123");
 | `getInvoice(id)`                      | Get an invoice by ID                      |
 | `createCheckoutLink(planId, uid, ttl?)` | Create a secure, time-limited checkout URL |
 | `createPortalLink(uid, ttl?)`           | Create a time-limited subscriber portal URL        |
+| `client.checkAccess(uid, subscriptionId?)` | Check if user has access (direct or squad) |
+| `client.squads.create(subscriberId)` | Create a squad for a subscriber |
+| `client.squads.get(squadId)` | Get squad by ID |
+| `client.squads.getByOwnerUid(uid)` | Find squad by owner's uid |
+| `client.squads.dissolve(squadId)` | Dissolve a squad |
+| `client.squads.addMember(squadId, uid)` | Add member to squad |
+| `client.squads.removeMember(squadId, uid)` | Remove member from squad |
+| `client.squads.getMembers(squadId)` | List active squad members |
 
 ## Provider API
 

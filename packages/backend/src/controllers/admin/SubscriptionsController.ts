@@ -102,6 +102,8 @@ export class SubscriptionsController {
         if (data.renewalMode !== undefined) sub.renewalMode = data.renewalMode;
         if (data.isActive !== undefined) sub.isActive = data.isActive;
         if (data.metadata !== undefined) sub.metadata = data.metadata;
+        if (data.squadEnabled !== undefined) sub.squadEnabled = data.squadEnabled;
+        if (data.squadMaxMembers !== undefined) sub.squadMaxMembers = data.squadMaxMembers;
 
         return this.repo().save(sub);
     }

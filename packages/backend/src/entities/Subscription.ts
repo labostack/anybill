@@ -68,6 +68,14 @@ export class Subscription {
     @Column({ type: "simple-json", nullable: true })
     metadata!: Record<string, any> | null;
 
+    /** Whether this plan supports squads (group/family subscriptions). */
+    @Column({ type: "boolean", default: false })
+    squadEnabled!: boolean;
+
+    /** Maximum members per squad (excluding the owner). 0 = unlimited. */
+    @Column({ type: "integer", default: 0 })
+    squadMaxMembers!: number;
+
     /** Users subscribed to this plan. */
     @OneToMany(() => Subscriber, (s) => s.subscription)
     subscribers!: Subscriber[];
