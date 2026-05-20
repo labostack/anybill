@@ -1,0 +1,288 @@
+/**
+ * AnyBill Embed Widget — drop-in checkout integration.
+ *
+ * Add this script to any page and use `data-anybill-checkout` buttons
+ * or the `AnybillEmbed.open()` API to launch a modal checkout overlay.
+ *
+ * @example HTML usage:
+ * ```html
+ * <script src="https://billing.example.com/embed.js"></script>
+ * <button
+ *   data-anybill-checkout
+ *   data-base-url="https://billing.example.com"
+ *   data-subscription-id="uuid"
+ *   data-uid="user_123">
+ *   Subscribe
+ * </button>
+ * ```
+ *
+ * @example Programmatic usage:
+ * ```js
+ * AnybillEmbed.open({
+ *   baseUrl: "https://billing.example.com",
+ *   subscriptionId: "uuid",
+ *   uid: "user_123",
+ *   onSuccess: (invoiceId) => console.log("Paid!", invoiceId),
+ *   onClose: () => console.log("Closed"),
+ * });
+ * ```
+ */
+
+(function () {
+    "use strict";
+
+    if ((window as any).__anybill_embed_loaded) return;
+    (window as any).__anybill_embed_loaded = true;
+
+    // ─── Types ──────────────────────────────────────────
+
+    interface EmbedOptions {
+        baseUrl: string;
+        subscriptionId: string;
+        uid: string;
+        theme?: "dark" | "auto";
+        onSuccess?: (invoiceId: string) => void;
+        onClose?: () => void;
+    }
+
+    // ─── Styles ─────────────────────────────────────────
+
+    const OVERLAY_ID = "anybill-embed-overlay";
+    const FRAME_ID = "anybill-embed-frame";
+
+    const CSS = `
+        #${OVERLAY_ID} {
+            position: fixed;
+            inset: 0;
+            z-index: 2147483647;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(4px);
+            -webkit-backdrop-filter: blur(4px);
+            opacity: 0;
+            transition: opacity 0.25s ease;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        }
+        #${OVERLAY_ID}.visible {
+            opacity: 1;
+        }
+        #${OVERLAY_ID} .anybill-modal {
+            position: relative;
+            width: 94vw;
+            max-width: 960px;
+            height: 85vh;
+            max-height: 700px;
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 25px 60px rgba(0, 0, 0, 0.5);
+            transform: translateY(20px) scale(0.97);
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            background: #0f1118;
+        }
+        #${OVERLAY_ID}.visible .anybill-modal {
+            transform: translateY(0) scale(1);
+        }
+        #${OVERLAY_ID} .anybill-close {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            z-index: 10;
+            width: 32px;
+            height: 32px;
+            border: none;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.08);
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 18px;
+            line-height: 1;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+        }
+        #${OVERLAY_ID} .anybill-close:hover {
+            background: rgba(255, 255, 255, 0.15);
+            color: #fff;
+        }
+        #${FRAME_ID} {
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+        @media (max-width: 640px) {
+            #${OVERLAY_ID} .anybill-modal {
+                width: 100vw;
+                height: 100vh;
+                max-width: none;
+                max-height: none;
+                border-radius: 0;
+            }
+        }
+    `;
+
+    // ─── Inject stylesheet ──────────────────────────────
+
+    function injectStyles(): void {
+        if (document.getElementById("anybill-embed-styles")) return;
+        const style = document.createElement("style");
+        style.id = "anybill-embed-styles";
+        style.textContent = CSS;
+        document.head.appendChild(style);
+    }
+
+    // ─── Core ───────────────────────────────────────────
+
+    let currentOptions: EmbedOptions | null = null;
+
+    function buildCheckoutUrl(opts: EmbedOptions): string {
+        const base = opts.baseUrl.replace(/\/$/, "");
+        const params = new URLSearchParams({
+            sub_id: opts.subscriptionId,
+            uid: opts.uid,
+        });
+        return `${base}/pay/checkout?${params.toString()}`;
+    }
+
+    function open(opts: EmbedOptions): void {
+        if (!opts.baseUrl || !opts.subscriptionId || !opts.uid) {
+            console.error("[AnybillEmbed] Missing required options: baseUrl, subscriptionId, uid");
+            return;
+        }
+
+        close();
+
+        currentOptions = opts;
+        injectStyles();
+
+        const overlay = document.createElement("div");
+        overlay.id = OVERLAY_ID;
+
+        const modal = document.createElement("div");
+        modal.className = "anybill-modal";
+
+        const closeBtn = document.createElement("button");
+        closeBtn.className = "anybill-close";
+        closeBtn.innerHTML = "&#x2715;";
+        closeBtn.title = "Close";
+        closeBtn.addEventListener("click", close);
+
+        const iframe = document.createElement("iframe");
+        iframe.id = FRAME_ID;
+        iframe.src = buildCheckoutUrl(opts);
+        iframe.allow = "payment";
+        iframe.setAttribute("loading", "eager");
+
+        modal.appendChild(closeBtn);
+        modal.appendChild(iframe);
+        overlay.appendChild(modal);
+        document.body.appendChild(overlay);
+
+        document.body.style.overflow = "hidden";
+
+        overlay.addEventListener("click", (e) => {
+            if (e.target === overlay) close();
+        });
+
+        const escHandler = (e: KeyboardEvent) => {
+            if (e.key === "Escape") {
+                close();
+                document.removeEventListener("keydown", escHandler);
+            }
+        };
+        document.addEventListener("keydown", escHandler);
+
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+                overlay.classList.add("visible");
+            });
+        });
+
+        window.addEventListener("message", handleMessage);
+    }
+
+    function close(): void {
+        const overlay = document.getElementById(OVERLAY_ID);
+        if (overlay) {
+            overlay.classList.remove("visible");
+            setTimeout(() => overlay.remove(), 300);
+        }
+        document.body.style.overflow = "";
+        window.removeEventListener("message", handleMessage);
+
+        if (currentOptions?.onClose) {
+            currentOptions.onClose();
+        }
+        currentOptions = null;
+    }
+
+    function handleMessage(event: MessageEvent): void {
+        if (!currentOptions) return;
+
+        const base = currentOptions.baseUrl.replace(/\/$/, "");
+        try {
+            const expectedOrigin = new URL(base).origin;
+            if (event.origin !== expectedOrigin) return;
+        } catch {
+            return;
+        }
+
+        const data = event.data;
+        if (!data || typeof data !== "object") return;
+
+        if (data.type === "anybill:payment:confirmed") {
+            if (currentOptions.onSuccess) {
+                currentOptions.onSuccess(data.invoiceId);
+            }
+            setTimeout(close, 1500);
+        }
+
+        if (data.type === "anybill:checkout:close") {
+            close();
+        }
+    }
+
+    // ─── Auto-bind data-attribute buttons ───────────────
+
+    function bindButtons(): void {
+        const buttons = document.querySelectorAll<HTMLElement>("[data-anybill-checkout]");
+        buttons.forEach((btn) => {
+            if (btn.dataset.anybillBound) return;
+            btn.dataset.anybillBound = "true";
+
+            btn.addEventListener("click", (e) => {
+                e.preventDefault();
+                const baseUrl = btn.dataset.baseUrl || btn.dataset.anybillBaseUrl || "";
+                const subscriptionId = btn.dataset.subscriptionId || btn.dataset.anybillSubscriptionId || "";
+                const uid = btn.dataset.uid || btn.dataset.anybillUid || "";
+
+                if (!baseUrl) {
+                    console.error("[AnybillEmbed] data-base-url is required on the button element.");
+                    return;
+                }
+
+                open({ baseUrl, subscriptionId, uid });
+            });
+        });
+    }
+
+    // ─── Initialize ─────────────────────────────────────
+
+    if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", bindButtons);
+    } else {
+        bindButtons();
+    }
+
+    const observer = new MutationObserver(() => bindButtons());
+    observer.observe(document.body || document.documentElement, {
+        childList: true,
+        subtree: true,
+    });
+
+    // ─── Public API ─────────────────────────────────────
+
+    (window as any).AnybillEmbed = { open, close };
+})();

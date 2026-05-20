@@ -1,0 +1,48 @@
+{
+  "name": "@anybill/sdk",
+  "version": "0.1.0",
+  "description": "TypeScript SDK for the AnyBill billing platform — query subscriptions, subscribers and invoices, or build custom payment provider plugins",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/dortanes/anybill.git",
+    "directory": "packages/sdk"
+  },
+  "homepage": "https://github.com/dortanes/anybill/tree/main/packages/sdk#readme",
+  "bugs": {
+    "url": "https://github.com/dortanes/anybill/issues"
+  },
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "require": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "publishConfig": {
+    "registry": "https://registry.npmjs.org",
+    "access": "public"
+  },
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "anybill",
+    "billing",
+    "payments",
+    "subscriptions",
+    "sdk",
+    "payment-gateway",
+    "self-hosted"
+  ],
+  "devDependencies": {
+    "typescript": "^5.8.0"
+  }
+}

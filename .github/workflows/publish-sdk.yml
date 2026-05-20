@@ -1,0 +1,53 @@
+name: Publish SDK
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'packages/sdk/**'
+
+jobs:
+  publish:
+    name: Publish @anybill/sdk
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Check if version changed
+        id: check
+        run: |
+          CURRENT=$(node -p "require('./packages/sdk/package.json').version")
+          PREVIOUS=$(git show HEAD~1:packages/sdk/package.json 2>/dev/null | node -p "JSON.parse(require('fs').readFileSync('/dev/stdin','utf8')).version" 2>/dev/null || echo "")
+          echo "current=$CURRENT" >> "$GITHUB_OUTPUT"
+          if [ "$CURRENT" != "$PREVIOUS" ]; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: pnpm/action-setup@v4
+        if: steps.check.outputs.changed == 'true'
+
+      - uses: actions/setup-node@v4
+        if: steps.check.outputs.changed == 'true'
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile --filter @anybill/sdk
+        if: steps.check.outputs.changed == 'true'
+
+      - name: Build SDK
+        if: steps.check.outputs.changed == 'true'
+        run: pnpm --filter @anybill/sdk build
+
+      - name: Publish to npm
+        if: steps.check.outputs.changed == 'true'
+        working-directory: packages/sdk
+        run: npm publish --access public --provenance

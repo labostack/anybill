@@ -1,0 +1,6 @@
+{
+  "private": true,
+  "dependencies": {
+    "@anybill/sdk": "^0.1.0"
+  }
+}

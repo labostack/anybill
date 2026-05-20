@@ -1,0 +1,17 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "tasks": {
+    "build": {
+      "dependsOn": ["^build"],
+      "outputs": ["dist/**"]
+    },
+    "dev": {
+      "persistent": true,
+      "cache": false,
+      "env": ["JWT_SECRET", "PORT", "DB_PATH", "ADMIN_ORIGIN", "CHECKOUT_ORIGIN", "PROVIDERS"]
+    },
+    "typecheck": {
+      "dependsOn": ["^build"]
+    }
+  }
+}

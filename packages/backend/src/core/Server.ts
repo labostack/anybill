@@ -1,0 +1,156 @@
+/**
+ * @module core/Server
+ *
+ * Ts.ED server configuration and lifecycle management.
+ *
+ * Mounts all API controllers under their respective path prefixes:
+ * - `/api/admin`    — Admin dashboard endpoints (JWT-protected)
+ * - `/api/checkout` — Public checkout flow endpoints
+ * - `/api/webhook`  — Incoming provider webhooks
+ * - `/api/sdk`      — SDK/API endpoints (API key-protected)
+ * - `/health`       — Container health check
+ *
+ * In production, also serves the admin and checkout SPA bundles
+ * as static files from `/admin` and `/` respectively.
+ *
+ * CORS is configured to allow requests from the admin and checkout
+ * frontend origins (configurable via environment variables).
+ */
+
+import { Configuration, Inject } from "@tsed/di";
+import { PlatformApplication } from "@tsed/common";
+import "@tsed/platform-express";
+import "@tsed/swagger";
+import cors from "cors";
+import helmet from "helmet";
+import express from "express";
+import { mkdirSync, readFileSync } from "fs";
+import { join } from "path";
+import { AppDataSource } from "./datasource";
+
+const pkg = JSON.parse(readFileSync(join(__dirname, "../../package.json"), "utf-8"));
+
+// ─── Admin Controllers ──────────────────────────────────────────────
+import { AuthController } from "../controllers/admin/AuthController";
+import { SubscriptionsController } from "../controllers/admin/SubscriptionsController";
+import { SubscribersController } from "../controllers/admin/SubscribersController";
+import { InvoicesController } from "../controllers/admin/InvoicesController";
+import { DashboardController } from "../controllers/admin/DashboardController";
+import { SettingsController } from "../controllers/admin/SettingsController";
+import { ApiKeysController } from "../controllers/admin/ApiKeysController";
+import { WebhooksController } from "../controllers/admin/WebhooksController";
+
+// ─── Checkout Controllers ───────────────────────────────────────────
+import { CheckoutController } from "../controllers/checkout/CheckoutController";
+
+// ─── Webhook Controllers ────────────────────────────────────────────
+import { WebhookController } from "../controllers/webhook/WebhookController";
+
+// ─── SDK Controllers ────────────────────────────────────────────────
+import { SdkController } from "../controllers/sdk/SdkController";
+
+// ─── Health ─────────────────────────────────────────────────────────
+import { HealthController } from "../controllers/HealthController";
+
+
+
+
+@Configuration({
+    port: Number(process.env.PORT) || 3000,
+    acceptMimes: ["application/json"],
+    mount: {
+        "/api/admin": [
+            AuthController,
+            SubscriptionsController,
+            SubscribersController,
+            InvoicesController,
+            DashboardController,
+            SettingsController,
+            ApiKeysController,
+            WebhooksController,
+        ],
+        "/api/checkout": [CheckoutController],
+        "/api/webhook": [WebhookController],
+        "/api/sdk": [SdkController],
+        "/": [HealthController],
+    },
+    swagger: [
+        {
+            path: "/api/docs",
+            specVersion: "3.0.3",
+            spec: {
+                info: {
+                    title: "AnyBill API",
+                    version: pkg.version,
+                    description:
+                        "Headless, provider-agnostic billing platform. " +
+                        "Self-hosted, API-first, zero vendor lock-in.",
+                    license: { name: "MIT", url: "https://github.com/dortanes/anybill/blob/main/LICENSE" },
+                },
+                components: {
+                    securitySchemes: {
+                        cookieAuth: {
+                            type: "apiKey",
+                            in: "cookie",
+                            name: "anybill_session",
+                            description: "JWT session cookie (set by POST /api/admin/auth/login)",
+                        },
+                        apiKeyAuth: {
+                            type: "apiKey",
+                            in: "header",
+                            name: "X-Api-Key",
+                            description: "API key from the admin dashboard (Settings → API Keys)",
+                        },
+                    },
+                },
+            },
+        },
+    ],
+    middlewares: [
+        helmet({
+            contentSecurityPolicy: false, // SPAs manage their own CSP.
+            crossOriginEmbedderPolicy: false,
+        }),
+        cors({
+            origin: [
+                process.env.ADMIN_ORIGIN || "http://localhost:3001",
+                process.env.CHECKOUT_ORIGIN || "http://localhost:3002",
+            ],
+            credentials: true,
+        }),
+        express.json(),
+        express.urlencoded({ extended: true }),
+    ],
+    logger: {
+        disableRoutesSummary: false,
+    },
+})
+export class Server {
+    @Inject()
+    app!: PlatformApplication;
+
+    /**
+     * Create the database directory before TypeORM initializes.
+     * Runs before the Ts.ED IoC container is built.
+     */
+    async $beforeInit(): Promise<void> {
+        mkdirSync(process.env.DB_DIR || "./data", { recursive: true });
+    }
+
+    /**
+     * Initialize the TypeORM DataSource after the server is configured.
+     */
+    async $afterInit(): Promise<void> {
+        await AppDataSource.initialize();
+        console.log("[anybill] Database connected");
+    }
+
+    /**
+     * Gracefully close the database connection on shutdown.
+     */
+    async $onDestroy(): Promise<void> {
+        if (AppDataSource.isInitialized) {
+            await AppDataSource.destroy();
+        }
+    }
+}

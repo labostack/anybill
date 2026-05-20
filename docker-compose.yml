@@ -1,0 +1,14 @@
+services:
+  anybill:
+    image: ghcr.io/dortanes/anybill:latest
+    ports:
+      - "3000:3000"
+    environment:
+      - JWT_SECRET=${JWT_SECRET}
+      - PROVIDERS=/providers
+    volumes:
+      - anybill-data:/data
+      - ./providers:/providers:ro
+
+volumes:
+  anybill-data:

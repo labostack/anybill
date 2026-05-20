@@ -1,0 +1,31 @@
+:3000 {
+	handle /api/* {
+		reverse_proxy localhost:3001
+	}
+
+	handle /health {
+		reverse_proxy localhost:3001
+	}
+
+	@admin path /admin /admin/*
+	handle @admin {
+		uri strip_prefix /admin
+		root * /app/public/admin
+		try_files {path} /index.html
+		file_server
+	}
+
+	handle /embed.js {
+		root * /app/public/checkout
+		header Access-Control-Allow-Origin "*"
+		header Cache-Control "public, max-age=3600"
+		header Content-Type "application/javascript; charset=utf-8"
+		file_server
+	}
+
+	handle {
+		root * /app/public/checkout
+		try_files {path} /index.html
+		file_server
+	}
+}

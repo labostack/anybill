@@ -1,0 +1,23 @@
+{
+  "name": "@anybill/checkout",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "npm run build:embed:dev && vite --port 3002",
+    "build": "vite build && npm run build:embed",
+    "build:embed": "esbuild ./src/embed.ts --bundle --minify --format=iife --target=es2020 --outfile=dist/embed.js",
+    "build:embed:dev": "mkdir -p public && esbuild ./src/embed.ts --bundle --minify --format=iife --target=es2020 --outfile=public/embed.js",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@solidjs/router": "^0.15.0",
+    "lucide-solid": "^1.16.0",
+    "solid-js": "^1.9.0"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.0",
+    "typescript": "^5.8.0",
+    "vite": "^6.0.0",
+    "vite-plugin-solid": "^2.11.0"
+  }
+}
