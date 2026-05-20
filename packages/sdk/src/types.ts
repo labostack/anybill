@@ -54,3 +54,13 @@ export interface AnybillSDKConfig {
     /** API key from the AnyBill admin dashboard. */
     apiKey: string;
 }
+
+/** Secure checkout link returned by the API. */
+export interface CheckoutLink {
+    /** Signed checkout token. */
+    token: string;
+    /** Full checkout URL to redirect the user to. */
+    url: string;
+    /** ISO 8601 expiration timestamp. */
+    expiresAt: string;
+}

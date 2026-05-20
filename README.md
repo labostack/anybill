@@ -69,7 +69,7 @@ docker compose up -d
 | Path | Description |
 | --- | --- |
 | `http://localhost:3000/admin` | Admin dashboard |
-| `http://localhost:3000/pay/checkout?sub_id=...&uid=...` | Checkout page |
+| `http://localhost:3000/pay/s/:token` | Secure checkout page |
 | `http://localhost:3000/api/...` | API endpoints |
 
 On first visit to `/admin`, you'll be prompted to create an account and receive your initial API key.
@@ -193,8 +193,9 @@ const client = new AnybillSDK({
 const subscribers = await client.getSubscriberByUid("user_123");
 const isActive = subscribers.some((s) => s.status === "active");
 
-// Build a checkout URL
-const url = client.checkoutUrl("plan_uuid", "user_123");
+// Create a secure checkout link
+const link = await client.createCheckoutLink("plan_uuid", "user_123");
+// Redirect user to link.url
 ```
 
 See the full SDK docs in [`packages/sdk/README.md`](packages/sdk/README.md).
@@ -258,8 +259,8 @@ Failed deliveries are retried with exponential backoff (10s → 1m → 5m → 30
 
 | Method | Path | Description |
 | --- | --- | --- |
-| `GET` | `/info` | Subscription info + providers |
-| `POST` | `/pay` | Initiate payment |
+| `GET` | `/resolve/:token` | Verify token, return checkout info |
+| `POST` | `/pay` | Initiate payment (requires token) |
 | `GET` | `/confirm/:invoiceId` | Poll payment status |
 
 </details>
@@ -282,6 +283,7 @@ Failed deliveries are retried with exponential backoff (10s → 1m → 5m → 30
 | `GET` | `/subscribers[?uid=]` | Find subscribers |
 | `GET` | `/subscribers/:id` | Get subscriber by ID |
 | `GET` | `/invoices/:id` | Get invoice by ID |
+| `POST` | `/checkout-links` | Create a secure checkout link |
 
 </details>
 

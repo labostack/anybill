@@ -4,19 +4,22 @@
  * Request body models for checkout flow endpoints.
  */
 
-import { Required, Format, MinLength, MaxLength } from "@tsed/schema";
+import { Required, MinLength } from "@tsed/schema";
 
-/** Body for `POST /api/checkout/pay` — initiate a payment. */
+/**
+ * Body for `POST /api/checkout/pay` — initiate a payment.
+ *
+ * Requires a signed checkout token (from `/api/sdk/checkout-links` or
+ * `/api/admin/checkout-links`). The `sub_id` and `uid` are extracted
+ * from the verified token — they cannot be supplied directly.
+ */
 export class CheckoutPayBody {
-    @Required()
-    @Format("uuid")
-    sub_id!: string;
-
+    /** Signed checkout token containing sub_id, uid, and expiration. */
     @Required()
     @MinLength(1)
-    @MaxLength(512)
-    uid!: string;
+    token!: string;
 
+    /** Payment provider identifier (e.g. "stripe", "heleket"). */
     @Required()
     @MinLength(1)
     provider!: string;

@@ -4,24 +4,26 @@
  * Add this script to any page and use `data-anybill-checkout` buttons
  * or the `AnybillEmbed.open()` API to launch a modal checkout overlay.
  *
+ * Tokens must be generated server-side via the SDK or admin API before
+ * being passed to the embed widget.
+ *
  * @example HTML usage:
  * ```html
  * <script src="https://billing.example.com/embed.js"></script>
  * <button
  *   data-anybill-checkout
  *   data-base-url="https://billing.example.com"
- *   data-subscription-id="uuid"
- *   data-uid="user_123">
+ *   data-token="eyJ...">  <!-- token from SDK -->
  *   Subscribe
  * </button>
  * ```
  *
  * @example Programmatic usage:
  * ```js
+ * // Token obtained server-side: POST /api/sdk/checkout-links
  * AnybillEmbed.open({
  *   baseUrl: "https://billing.example.com",
- *   subscriptionId: "uuid",
- *   uid: "user_123",
+ *   token: "eyJ...signed-token",
  *   onSuccess: (invoiceId) => console.log("Paid!", invoiceId),
  *   onClose: () => console.log("Closed"),
  * });
@@ -38,8 +40,8 @@
 
     interface EmbedOptions {
         baseUrl: string;
-        subscriptionId: string;
-        uid: string;
+        /** Signed checkout token (from SDK or admin API). */
+        token: string;
         theme?: "dark" | "auto";
         onSuccess?: (invoiceId: string) => void;
         onClose?: () => void;
@@ -139,16 +141,12 @@
 
     function buildCheckoutUrl(opts: EmbedOptions): string {
         const base = opts.baseUrl.replace(/\/$/, "");
-        const params = new URLSearchParams({
-            sub_id: opts.subscriptionId,
-            uid: opts.uid,
-        });
-        return `${base}/pay/checkout?${params.toString()}`;
+        return `${base}/pay/s/${opts.token}`;
     }
 
     function open(opts: EmbedOptions): void {
-        if (!opts.baseUrl || !opts.subscriptionId || !opts.uid) {
-            console.error("[AnybillEmbed] Missing required options: baseUrl, subscriptionId, uid");
+        if (!opts.baseUrl || !opts.token) {
+            console.error("[AnybillEmbed] Missing required options: baseUrl, token");
             return;
         }
 
@@ -255,15 +253,14 @@
             btn.addEventListener("click", (e) => {
                 e.preventDefault();
                 const baseUrl = btn.dataset.baseUrl || btn.dataset.anybillBaseUrl || "";
-                const subscriptionId = btn.dataset.subscriptionId || btn.dataset.anybillSubscriptionId || "";
-                const uid = btn.dataset.uid || btn.dataset.anybillUid || "";
+                const token = btn.dataset.token || btn.dataset.anybillToken || "";
 
-                if (!baseUrl) {
-                    console.error("[AnybillEmbed] data-base-url is required on the button element.");
+                if (!baseUrl || !token) {
+                    console.error("[AnybillEmbed] data-base-url and data-token are required on the button element.");
                     return;
                 }
 
-                open({ baseUrl, subscriptionId, uid });
+                open({ baseUrl, token });
             });
         });
     }

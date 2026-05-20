@@ -33,20 +33,21 @@ function CodeBlock(props: { code: string; lang?: string }) {
 
 const HTML_SNIPPET = `<script src="https://your-anybill-domain.com/embed.js"></script>
 
+<!-- Token must be generated server-side via SDK or Admin API -->
 <button
   data-anybill-checkout
   data-base-url="https://your-anybill-domain.com"
-  data-subscription-id="SUBSCRIPTION_UUID"
-  data-uid="USER_ID">
+  data-token="CHECKOUT_TOKEN">
   Subscribe
 </button>`;
 
-const JS_SNIPPET = `// Make sure embed.js is loaded first
+const JS_SNIPPET = `// Token must be obtained server-side first:
+// POST /api/sdk/checkout-links { sub_id, uid }
+
 AnybillEmbed.open({
   baseUrl: "https://your-anybill-domain.com",
-  subscriptionId: "SUBSCRIPTION_UUID",
-  uid: "USER_ID",
-  theme: "dark",            // optional: "dark" | "auto"
+  token: "CHECKOUT_TOKEN",     // from SDK or Admin API
+  theme: "dark",               // optional: "dark" | "auto"
   onSuccess: (invoiceId) => {
     console.log("Payment confirmed!", invoiceId);
   },
@@ -86,7 +87,8 @@ export function Embed() {
                 </div>
                 <p class="embed-desc">
                     Add the script tag and a button with <code>data-anybill-checkout</code> attribute.
-                    The widget will automatically bind click handlers and open a modal checkout overlay.
+                    The <code>data-token</code> must be generated server-side via the SDK or Admin API
+                    (<code>POST /api/sdk/checkout-links</code>).
                 </p>
                 <CodeBlock code={HTML_SNIPPET} lang="html" />
             </div>
@@ -130,16 +132,10 @@ export function Embed() {
                                 <td>Your AnyBill instance URL</td>
                             </tr>
                             <tr>
-                                <td><code>subscriptionId</code></td>
-                                <td class="mono">data-subscription-id</td>
+                                <td><code>token</code></td>
+                                <td class="mono">data-token</td>
                                 <td><span class="badge badge-active">Yes</span></td>
-                                <td>UUID of the subscription plan</td>
-                            </tr>
-                            <tr>
-                                <td><code>uid</code></td>
-                                <td class="mono">data-uid</td>
-                                <td><span class="badge badge-active">Yes</span></td>
-                                <td>Your app's user identifier</td>
+                                <td>Signed checkout token (from SDK or Admin API)</td>
                             </tr>
                             <tr>
                                 <td><code>theme</code></td>

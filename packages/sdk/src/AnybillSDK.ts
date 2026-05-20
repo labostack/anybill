@@ -17,7 +17,7 @@
  * ```
  */
 
-import type { AnybillSDKConfig, Subscription, Subscriber, Invoice } from "./types";
+import type { AnybillSDKConfig, Subscription, Subscriber, Invoice, CheckoutLink } from "./types";
 
 /**
  * AnyBill SDK client.
@@ -47,6 +47,30 @@ export class AnybillSDK {
     private async request<T>(path: string): Promise<T> {
         const res = await fetch(`${this.baseUrl}/api/sdk${path}`, {
             headers: { "X-Api-Key": this.apiKey },
+        });
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({ message: res.statusText }));
+            throw new Error(`AnybillSDK: ${err.message}`);
+        }
+        return res.json();
+    }
+
+    /**
+     * Perform an authenticated POST request to the SDK API.
+     *
+     * @param path - Endpoint path (relative to `/api/sdk`).
+     * @param body - JSON-serialisable request body.
+     * @returns Parsed JSON response.
+     * @throws {Error} If the response is not OK.
+     */
+    private async post<T>(path: string, body: unknown): Promise<T> {
+        const res = await fetch(`${this.baseUrl}/api/sdk${path}`, {
+            method: "POST",
+            headers: {
+                "X-Api-Key": this.apiKey,
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify(body),
         });
         if (!res.ok) {
             const err = await res.json().catch(() => ({ message: res.statusText }));
@@ -88,13 +112,20 @@ export class AnybillSDK {
     }
 
     /**
-     * Build a checkout URL for a subscription plan.
+     * Create a secure checkout link.
+     *
+     * The returned URL can be shared with end-users. It contains a signed
+     * token that expires after `ttl` seconds (default: 30 minutes).
      *
      * @param subscriptionId - Plan ID to purchase.
      * @param uid            - External user identifier.
-     * @returns Full checkout URL to redirect the user to.
+     * @param ttl            - Optional token lifetime in seconds (60–86400).
+     * @returns Checkout link with token, URL, and expiration.
      */
-    checkoutUrl(subscriptionId: string, uid: string): string {
-        return `${this.baseUrl}/pay/checkout?sub_id=${subscriptionId}&uid=${encodeURIComponent(uid)}`;
+    async createCheckoutLink(subscriptionId: string, uid: string, ttl?: number): Promise<CheckoutLink> {
+        const body: Record<string, any> = { sub_id: subscriptionId, uid };
+        if (ttl !== undefined) body.ttl = ttl;
+        return this.post("/checkout-links", body);
     }
+
 }

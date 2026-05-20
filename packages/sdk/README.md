@@ -30,19 +30,20 @@ const plans = await client.getSubscriptions();
 const subscribers = await client.getSubscriberByUid("user_123");
 const isActive = subscribers.some((s) => s.status === "active");
 
-// Build a checkout URL to redirect the user to
-const url = client.checkoutUrl("plan-uuid", "user_123");
+// Create a secure checkout link
+const link = await client.createCheckoutLink("plan-uuid", "user_123");
+// link.url → redirect user here
 ```
 
 ### Methods
 
 | Method                     | Description                          |
 | -------------------------- | ------------------------------------ |
-| `getSubscriptions()`       | List all active subscription plans   |
-| `getSubscriberByUid(uid)`  | Find subscribers by external user ID |
-| `getSubscriber(id)`        | Get a subscriber by AnyBill ID       |
-| `getInvoice(id)`           | Get an invoice by ID                 |
-| `checkoutUrl(planId, uid)` | Build a checkout page URL            |
+| `getSubscriptions()`                  | List all active subscription plans        |
+| `getSubscriberByUid(uid)`             | Find subscribers by external user ID      |
+| `getSubscriber(id)`                   | Get a subscriber by AnyBill ID            |
+| `getInvoice(id)`                      | Get an invoice by ID                      |
+| `createCheckoutLink(planId, uid, ttl?)` | Create a secure, time-limited checkout URL |
 
 ## Provider API
 

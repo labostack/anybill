@@ -75,10 +75,3 @@ export class DeliveryListQuery extends PaginationQuery {
     endpoint_id?: string;
 }
 
-// ─── Checkout ───────────────────────────────────────────────────────
-
-/** Query params for `GET /api/checkout/info`. */
-export class CheckoutInfoQuery {
-    @Required()
-    sub_id!: string;
-}

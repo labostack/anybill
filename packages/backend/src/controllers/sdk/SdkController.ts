@@ -7,7 +7,7 @@
  * Used by the `@anybill/sdk` client library and third-party integrations.
  */
 
-import { Controller, Get, PathParams, QueryParams, UseBefore } from "@tsed/common";
+import { Controller, Get, Post, BodyParams, PathParams, QueryParams, UseBefore } from "@tsed/common";
 import { NotFound } from "@tsed/exceptions";
 import { Tags, Summary, Description, Returns } from "@tsed/schema";
 import { SdkGuard } from "../../core/SdkGuard";
@@ -15,6 +15,10 @@ import { AppDataSource } from "../../core/datasource";
 import { Subscription } from "../../entities/Subscription";
 import { Subscriber } from "../../entities/Subscriber";
 import { Invoice } from "../../entities/Invoice";
+import { createCheckoutToken } from "../../core/checkoutToken";
+import { CreateCheckoutLinkBody } from "../../models/CheckoutLinkModels";
+
+const CHECKOUT_ORIGIN = process.env.CHECKOUT_ORIGIN || "http://localhost:3002";
 
 @Controller("/")
 @UseBefore(SdkGuard)
@@ -70,5 +74,37 @@ export class SdkController {
         const inv = await AppDataSource.getRepository(Invoice).findOneBy({ id });
         if (!inv) throw new NotFound("Invoice not found");
         return inv;
+    }
+
+    /**
+     * Generate a secure checkout link.
+     *
+     * Creates an HMAC-signed token containing the subscription ID and user ID.
+     * The resulting URL can be shared with the end-user to access the checkout page.
+     *
+     * @returns Token, full checkout URL, and expiration timestamp.
+     */
+    @Post("/checkout-links")
+    @Summary("Create checkout link")
+    @Description("Generates a secure, time-limited checkout URL for a subscription plan and user.")
+    @Returns(200)
+    @Returns(400)
+    @Returns(404)
+    async createCheckoutLink(@BodyParams() { sub_id, uid, ttl }: CreateCheckoutLinkBody) {
+        const subscription = await AppDataSource.getRepository(Subscription).findOneBy({
+            id: sub_id,
+            isActive: true,
+        });
+        if (!subscription) {
+            throw new NotFound("Subscription not found or inactive");
+        }
+
+        const { token, expiresAt } = createCheckoutToken(sub_id, uid, ttl);
+
+        return {
+            token,
+            url: `${CHECKOUT_ORIGIN}/pay/s/${token}`,
+            expiresAt: expiresAt.toISOString(),
+        };
     }
 }

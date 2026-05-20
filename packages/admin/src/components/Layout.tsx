@@ -12,6 +12,7 @@ import {
     KeyRound,
     Webhook,
     Code,
+    Link,
 } from "lucide-solid";
 
 const links = [
@@ -64,6 +65,14 @@ export function Layout(props: ParentProps) {
                 </nav>
 
                 <div class="sidebar-bottom">
+                    <A
+                        href="/links"
+                        class={`nav-item ${isActive("/links") ? "active" : ""}`}
+                    >
+                        <Link size={20} />
+                        <span class="tooltip">Payment Links</span>
+                    </A>
+
                     <A
                         href="/keys"
                         class={`nav-item ${isActive("/keys") ? "active" : ""}`}

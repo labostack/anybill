@@ -45,6 +45,7 @@ import { DashboardController } from "../controllers/admin/DashboardController";
 import { SettingsController } from "../controllers/admin/SettingsController";
 import { ApiKeysController } from "../controllers/admin/ApiKeysController";
 import { WebhooksController } from "../controllers/admin/WebhooksController";
+import { CheckoutLinksController } from "../controllers/admin/CheckoutLinksController";
 
 // ─── Checkout Controllers ───────────────────────────────────────────
 import { CheckoutController } from "../controllers/checkout/CheckoutController";
@@ -74,6 +75,7 @@ import { HealthController } from "../controllers/HealthController";
             SettingsController,
             ApiKeysController,
             WebhooksController,
+            CheckoutLinksController,
         ],
         "/api/checkout": [CheckoutController],
         "/api/webhook": [WebhookController],
