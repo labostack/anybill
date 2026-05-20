@@ -10,6 +10,9 @@
  * TypeScript files are transparently transpiled via esbuild before loading,
  * so providers can be authored in `.ts` without any pre-compilation step.
  *
+ * `@anybill/sdk` is automatically injected at load time — providers do NOT
+ * need to install the SDK in their own `node_modules/`.
+ *
  * If `PROVIDERS` is not set, the platform starts with zero providers.
  */
 
@@ -19,6 +22,60 @@ import { readdirSync, existsSync, readFileSync } from "fs";
 import { join, resolve, dirname } from "path";
 import Module from "module";
 import type { AnybillProvider } from "../billing/AnybillProvider";
+import * as billingExports from "../billing/index";
+
+// ─── SDK Module ID ──────────────────────────────────────────────────
+
+const SDK_MODULE_ID = "@anybill/sdk";
+
+// ─── SDK Injection Hook ─────────────────────────────────────────────
+
+/**
+ * Install a temporary `require()` hook that intercepts `@anybill/sdk`
+ * and returns the backend's own billing exports instead of looking for
+ * the package in the provider's `node_modules/`.
+ *
+ * This means provider authors can write:
+ *   `import { AnybillProvider, CreatePaymentLink, ... } from "@anybill/sdk"`
+ * without installing anything — the engine provides everything.
+ *
+ * The hook is scoped: call the returned `unhook()` function to restore
+ * the original behaviour after loading is complete.
+ *
+ * If the provider has its own `node_modules/@anybill/sdk` installed,
+ * the hook takes precedence (same version, guaranteed compatible).
+ *
+ * @returns A cleanup function that removes the hook.
+ */
+function installSdkHook(): () => void {
+    const originalResolve = (Module as any)._resolveFilename;
+
+    (Module as any)._resolveFilename = function (
+        request: string,
+        parent: any,
+        isMain: boolean,
+        options: any,
+    ) {
+        if (request === SDK_MODULE_ID) {
+            return SDK_MODULE_ID;
+        }
+        return originalResolve.call(this, request, parent, isMain, options);
+    };
+
+    // Pre-populate require.cache with backend's billing exports
+    const cachedModule = new Module(SDK_MODULE_ID, module);
+    cachedModule.filename = SDK_MODULE_ID;
+    (cachedModule as any).loaded = true;
+    cachedModule.exports = billingExports;
+    require.cache[SDK_MODULE_ID] = cachedModule;
+
+    return () => {
+        (Module as any)._resolveFilename = originalResolve;
+        delete require.cache[SDK_MODULE_ID];
+    };
+}
+
+// ─── Transpilation ──────────────────────────────────────────────────
 
 /**
  * Transpile a TypeScript source string to CommonJS JavaScript using esbuild.
@@ -51,9 +108,9 @@ function transpileTs(source: string, filename: string): string {
  * Load a `.ts` file by transpiling it on-the-fly and evaluating
  * the resulting JS in the context of the original file's directory.
  *
- * This preserves Node module resolution — `require("@anybill/sdk")`
- * inside the provider will resolve from the provider directory's
- * own `node_modules/`, exactly as the user expects.
+ * Module resolution still works for the provider's own dependencies
+ * (e.g. `stripe`, `axios`), while `@anybill/sdk` is intercepted by
+ * the SDK hook installed during loading.
  */
 function requireTs(filePath: string): any {
     const source = readFileSync(filePath, "utf-8");
@@ -66,6 +123,8 @@ function requireTs(filePath: string): any {
 
     return m.exports;
 }
+
+// ─── Service ────────────────────────────────────────────────────────
 
 @Injectable()
 export class ProviderLoader {
@@ -95,30 +154,38 @@ export class ProviderLoader {
             (f) => (f.endsWith(".ts") || f.endsWith(".js")) && !f.endsWith(".d.ts"),
         );
 
-        for (const file of files) {
-            try {
-                const fullPath = join(resolved, file);
+        // Install SDK hook so providers can `import ... from "@anybill/sdk"`
+        // without having the package in their own node_modules.
+        const unhook = installSdkHook();
 
-                let mod: any;
-                if (file.endsWith(".ts")) {
-                    mod = requireTs(fullPath);
-                } else {
-                    delete require.cache[require.resolve(fullPath)];
-                    mod = require(fullPath);
+        try {
+            for (const file of files) {
+                try {
+                    const fullPath = join(resolved, file);
+
+                    let mod: any;
+                    if (file.endsWith(".ts")) {
+                        mod = requireTs(fullPath);
+                    } else {
+                        delete require.cache[require.resolve(fullPath)];
+                        mod = require(fullPath);
+                    }
+
+                    const exported = mod.default ?? mod;
+
+                    if (!exported.name || !exported.provider) {
+                        this.logger.warn(`Skipping ${file}: missing 'name' or 'provider' export`);
+                        continue;
+                    }
+
+                    this.providers.set(exported.name, exported.provider);
+                    this.logger.info(`Loaded provider: ${exported.name} (${file})`);
+                } catch (err) {
+                    this.logger.error(`Failed to load provider ${file}:`, err);
                 }
-
-                const exported = mod.default ?? mod;
-
-                if (!exported.name || !exported.provider) {
-                    this.logger.warn(`Skipping ${file}: missing 'name' or 'provider' export`);
-                    continue;
-                }
-
-                this.providers.set(exported.name, exported.provider);
-                this.logger.info(`Loaded provider: ${exported.name} (${file})`);
-            } catch (err) {
-                this.logger.error(`Failed to load provider ${file}:`, err);
             }
+        } finally {
+            unhook();
         }
 
         this.loaded = true;

@@ -106,20 +106,13 @@ All configuration is via environment variables.
 
 Providers are `.ts` or `.js` files in the `providers/` directory. AnyBill auto-discovers them on startup.
 
-The `providers/` directory needs a `package.json` to install `@anybill/sdk` and a `tsconfig.json` with `experimentalDecorators` enabled:
+`@anybill/sdk` is **automatically injected** by the engine — no `npm install` needed. Just create your provider file and go:
 
 ```
 providers/
-├── package.json       # { "dependencies": { "@anybill/sdk": "..." } }
 ├── tsconfig.json      # { "compilerOptions": { "experimentalDecorators": true } }
 ├── stripe.ts          # Provider implementation
 └── cloudpayments.ts   # Another provider
-```
-
-Install the SDK before starting the container:
-
-```bash
-cd providers && npm install && cd ..
 ```
 
 ### Provider Implementation
