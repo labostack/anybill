@@ -1,5 +1,6 @@
 /** Subscriptions page — plan management with grouped card layout, create/edit/delete modals. */
 import { createSignal, createMemo, onMount, For, Show } from "solid-js";
+import { createStore } from "solid-js/store";
 import { api } from "../api/client";
 import { Plus, ChevronDown, ChevronUp, Users, Copy, Check } from "lucide-solid";
 
@@ -53,6 +54,7 @@ export function Subscriptions() {
     const [editing, setEditing] = createSignal<any>(null);
     const [collapsed, setCollapsed] = createSignal<Record<string, boolean>>({});
     const [form, setForm] = createSignal({ name: "", description: "", displayAmount: "", currency: "USD", interval: "month", intervalCount: "1", renewalMode: "manual", squadEnabled: false, squadMaxMembers: "0", trialDays: "0" });
+    const [metaRows, setMetaRows] = createStore<{ key: string; value: string }[]>([]);
     const [formError, setFormError] = createSignal("");
     const [saving, setSaving] = createSignal(false);
 
@@ -88,6 +90,7 @@ export function Subscriptions() {
     const openCreate = () => {
         setEditing(null);
         setForm({ name: "", description: "", displayAmount: "", currency: "USD", interval: "month", intervalCount: "1", renewalMode: "manual", squadEnabled: false, squadMaxMembers: "0", trialDays: "0" });
+        setMetaRows([]);
         setFormError("");
         setShowModal(true);
     };
@@ -106,6 +109,9 @@ export function Subscriptions() {
             squadMaxMembers: String(sub.squadMaxMembers || 0),
             trialDays: String(sub.trialDays || 0),
         });
+        // Convert existing metadata object → rows
+        const meta = sub.metadata && typeof sub.metadata === "object" ? sub.metadata : {};
+        setMetaRows(Object.entries(meta).map(([key, value]) => ({ key, value: String(value) })));
         setFormError("");
         setShowModal(true);
     };
@@ -115,7 +121,17 @@ export function Subscriptions() {
         setSaving(true);
         try {
             const amount = displayToMinor(form().displayAmount);
-            const body = {
+            // Convert metadata rows → object (skip empty keys)
+            const metadata: Record<string, any> = {};
+            for (const { key, value } of metaRows) {
+                const k = key.trim();
+                if (!k) continue;
+                // Auto-cast numbers
+                const num = Number(value);
+                metadata[k] = value.trim() !== "" && !isNaN(num) && value.trim() !== "" ? num : value;
+            }
+            const hasMetadata = Object.keys(metadata).length > 0;
+            const body: Record<string, any> = {
                 name: form().name,
                 description: form().description,
                 amount,
@@ -127,6 +143,7 @@ export function Subscriptions() {
                 squadMaxMembers: Number(form().squadMaxMembers),
                 trialDays: form().interval === "one_time" ? 0 : Number(form().trialDays || 0),
             };
+            if (hasMetadata) body.metadata = metadata;
             if (editing()) {
                 await api.put(`/subscriptions/${editing().id}`, body);
             } else {
@@ -443,6 +460,52 @@ export function Subscriptions() {
                                 <div class="form-hint">Maximum members excluding the owner. 0 = unlimited.</div>
                             </div>
                         </Show>
+
+                        {/* Metadata key-value editor */}
+                        <div class="form-group">
+                            <label style="display: flex; justify-content: space-between; align-items: center">
+                                <span>Metadata</span>
+                                <button
+                                    type="button"
+                                    class="btn btn-ghost btn-sm"
+                                    onClick={() => setMetaRows(metaRows.length, { key: "", value: "" })}
+                                >
+                                    + Add field
+                                </button>
+                            </label>
+                            <Show when={metaRows.length === 0}>
+                                <div class="form-hint">No metadata fields. Click "+ Add field" to add custom properties.</div>
+                            </Show>
+                            <div class="meta-rows">
+                                <For each={metaRows}>
+                                    {(row, i) => (
+                                        <div class="meta-row">
+                                            <input
+                                                class="meta-key"
+                                                placeholder="key"
+                                                value={row.key}
+                                                onInput={(e) => setMetaRows(i(), "key", e.target.value)}
+                                            />
+                                            <span class="meta-sep">=</span>
+                                            <input
+                                                class="meta-value"
+                                                placeholder="value"
+                                                value={row.value}
+                                                onInput={(e) => setMetaRows(i(), "value", e.target.value)}
+                                            />
+                                            <button
+                                                type="button"
+                                                class="btn btn-ghost btn-sm btn-icon meta-remove"
+                                                title="Remove"
+                                                onClick={() => setMetaRows((r) => r.filter((_, idx) => idx !== i()))}
+                                            >✕</button>
+                                        </div>
+                                    )}
+                                </For>
+                            </div>
+                            <div class="form-hint">Custom properties for your app (e.g. max_proxies, features). Numbers are auto-cast.</div>
+                        </div>
+
                         <div class="modal-actions">
                             <button class="btn btn-ghost" onClick={() => setShowModal(false)}>Cancel</button>
                             <button class="btn btn-primary" onClick={save} disabled={saving()}>

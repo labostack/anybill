@@ -531,6 +531,53 @@ td.mono {
     pointer-events: none;
 }
 
+/* ─── Metadata Key-Value Editor ────────────────────── */
+
+.meta-rows {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-top: 8px;
+}
+
+.meta-row {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr auto;
+    align-items: center;
+    gap: 8px;
+}
+
+.meta-key {
+    font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+    font-size: 13px;
+}
+
+.meta-value {
+    font-size: 13px;
+}
+
+.meta-sep {
+    font-size: 14px;
+    color: var(--text-muted);
+    font-weight: 500;
+    line-height: 1;
+    user-select: none;
+}
+
+.meta-remove {
+    width: 30px;
+    height: 30px;
+    font-size: 14px;
+    color: var(--text-muted);
+    flex-shrink: 0;
+}
+
+.meta-remove:hover {
+    color: var(--danger);
+    border-color: var(--danger);
+    background: var(--danger-bg);
+}
+
 /* ─── Webhooks Page ────────────────────────────────── */
 
 .webhook-endpoints {
