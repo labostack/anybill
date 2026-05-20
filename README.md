@@ -106,8 +106,6 @@ All configuration is via environment variables.
 
 Providers are `.ts` or `.js` files in the `providers/` directory. AnyBill auto-discovers them on startup.
 
-`@anybill/sdk` is **automatically injected** by the engine — no `npm install` needed. Just create your provider file and go:
-
 ```
 providers/
 ├── tsconfig.json      # { "compilerOptions": { "experimentalDecorators": true } }

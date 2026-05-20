@@ -16,9 +16,6 @@ cp .env.example .env
 docker compose up -d
 ```
 
-> **Tip:** `@anybill/sdk` is provided automatically by the engine at runtime.
-> You can still `npm install @anybill/sdk` in your providers directory for
-> IDE autocompletion and type checking.
 
 ## Structure
 
