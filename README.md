@@ -83,6 +83,8 @@ All configuration is via environment variables.
 | `JWT_SECRET` | — | **Required.** JWT signing key |
 | `DB_PATH` | `/data/anybill.db` | SQLite database file path |
 | `PROVIDERS` | — | Path to provider plugins directory |
+| `CHECKOUT_ORIGIN` | `http://localhost:3002` | Checkout domain (used in payment links and CORS) |
+| `ADMIN_ORIGIN` | `http://localhost:3001` | Admin domain (CORS) |
 | `JWT_EXPIRY` | `7d` | Admin session lifetime |
 | `BCRYPT_ROUNDS` | `12` | Password hashing cost factor |
 
