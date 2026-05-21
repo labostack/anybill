@@ -7,7 +7,7 @@
  * resolve secure checkout tokens, and poll confirmation status.
  */
 
-import { Controller, Get, Post, BodyParams, PathParams } from "@tsed/common";
+import { Controller, Get, Post, BodyParams, PathParams, Req } from "@tsed/common";
 import { BadRequest, NotFound } from "@tsed/exceptions";
 import { Tags, Summary, Description, Returns } from "@tsed/schema";
 import { AppDataSource } from "../../core/datasource";
@@ -42,11 +42,19 @@ export class CheckoutController {
     @Description("Verifies the checkout token, creates a subscriber (if needed), generates an invoice, and returns a payment URL.")
     @Returns(200)
     @Returns(400)
-    async pay(@BodyParams() { token, provider, couponCode }: CheckoutPayBody) {
+    async pay(@BodyParams() { token, provider, couponCode }: CheckoutPayBody, @Req() req: any) {
         const payload = verifyCheckoutToken(token);
         if (!payload) {
             throw new AppError(400, ErrorCode.INVALID_CHECKOUT_TOKEN, "Invalid or expired checkout token");
         }
+
+        // Resolve client IP: X-Real-IP → first entry of X-Forwarded-For → req.ip / socket
+        const clientIp: string | undefined =
+            (req.headers["x-real-ip"] as string | undefined) ??
+            (req.headers["x-forwarded-for"] as string | undefined)?.split(",")[0].trim() ??
+            req.ip ??
+            req.socket?.remoteAddress;
+
         // Use couponCode from body, or from token if pre-applied
         const effectiveCouponCode = couponCode || payload.coupon_code;
         return this.billing.createPayment(
@@ -55,6 +63,7 @@ export class CheckoutController {
             provider,
             effectiveCouponCode,
             payload.prev_subscriber_id,
+            clientIp,
         );
     }
 

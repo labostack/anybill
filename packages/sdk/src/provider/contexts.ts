@@ -107,6 +107,12 @@ export interface PaymentContext {
     /** The subscriber / user initiating the payment. */
     user: PaymentUser;
     /**
+     * IP address of the client initiating the payment.
+     * Resolved in order: `X-Real-IP` → first value of `X-Forwarded-For` → socket remote address.
+     * May be `undefined` if the IP could not be determined.
+     */
+    clientIp?: string;
+    /**
      * Arbitrary key-value metadata forwarded from the checkout request.
      * Use this to pass provider-specific options (e.g. locale, return URL).
      */

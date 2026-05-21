@@ -48,6 +48,11 @@ export interface PaymentContext {
         uid: string;
         subscriberId: string;
     };
+    /**
+     * IP address of the client initiating the payment.
+     * Resolved from `X-Real-IP` → first value of `X-Forwarded-For` → socket remote address.
+     */
+    clientIp?: string;
     metadata?: Record<string, any>;
 }
 

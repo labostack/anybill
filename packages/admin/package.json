@@ -1,6 +1,6 @@
 {
   "name": "@anybill/admin",
-  "version": "0.9.6",
+  "version": "0.9.7",
   "private": true,
   "scripts": {
     "dev": "vite --port 3001",

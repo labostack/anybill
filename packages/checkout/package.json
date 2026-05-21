@@ -1,6 +1,6 @@
 {
   "name": "@anybill/checkout",
-  "version": "0.9.6",
+  "version": "0.9.7",
   "private": true,
   "scripts": {
     "dev": "npm run build:embed:dev && vite --port 3002",
