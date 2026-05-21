@@ -1054,6 +1054,119 @@ body {
     color: var(--text-muted);
 }
 
+/* Plan cards (Step 1 — grouped by name) */
+.portal-plan-card {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    width: 100%;
+    padding: 16px 18px;
+    background: var(--bg-card);
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius);
+    cursor: pointer;
+    text-align: left;
+    font-family: var(--font);
+    transition: all 0.18s var(--ease);
+}
+
+.portal-plan-card:hover {
+    border-color: var(--border-hover);
+    background: var(--bg-elevated);
+    transform: translateY(-1px);
+}
+
+.portal-plan-card-current {
+    border-color: var(--accent);
+    background: rgba(99, 179, 237, 0.05);
+}
+
+.portal-plan-card-current:hover {
+    border-color: var(--accent);
+    background: rgba(99, 179, 237, 0.08);
+}
+
+.portal-plan-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.portal-plan-card-name {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text);
+}
+
+.portal-plan-card-badge {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    padding: 2px 8px;
+    border-radius: 100px;
+    background: rgba(99, 179, 237, 0.14);
+    color: var(--accent);
+    white-space: nowrap;
+}
+
+.portal-plan-card-variants {
+    font-size: 12px;
+    color: var(--text-muted);
+}
+
+/* Current variant badge inside step 2 option */
+.portal-plan-current-badge {
+    display: inline-block;
+    margin-left: 8px;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding: 1px 7px;
+    border-radius: 100px;
+    background: rgba(99, 179, 237, 0.14);
+    color: var(--accent);
+    vertical-align: middle;
+}
+
+/* Disabled "current" variant row */
+.portal-plan-option-current {
+    opacity: 0.55;
+    cursor: default;
+    pointer-events: none;
+}
+
+/* Back button (step 2) */
+.portal-back-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    font-family: var(--font);
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    padding: 0;
+    margin-bottom: 16px;
+    transition: color 0.15s var(--ease);
+}
+
+.portal-back-btn:hover {
+    color: var(--text);
+}
+
+/* Left-align title/desc in change plan modal (no icon above) */
+.portal-modal-lg .portal-modal-title,
+.portal-modal-lg .portal-modal-desc {
+    text-align: left;
+}
+
+
+
 /* ─── Portal Squad ─────────────────────────────────── */
 
 .portal-badge-info {

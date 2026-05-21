@@ -231,10 +231,12 @@ export class BillingService implements OnInit {
         if (!invoice) throw new BadRequest("No paid invoice found to refund");
 
         if (!this.engine.can(invoice.provider, "refund")) {
-            // Manual refund: update DB state directly.
+                    // Manual refund: update DB state directly.
             invoice.status = "refunded";
             await invoiceRepo.save(invoice);
+            // Refund = immediate access revocation (money returned — no grace period).
             subscriber.status = "cancelled";
+            subscriber.currentPeriodEnd = new Date();
             await subscriberRepo.save(subscriber);
             return { refunded: true, method: "manual" };
         }
@@ -522,7 +524,9 @@ export class BillingService implements OnInit {
 
         const subscriber = await subscriberRepo.findOneBy({ id: invoice.subscriberId });
         if (subscriber) {
+            // Refund = immediate access revocation (money returned — no grace period).
             subscriber.status = "cancelled";
+            subscriber.currentPeriodEnd = new Date();
             await subscriberRepo.save(subscriber);
         }
 

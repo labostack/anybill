@@ -154,7 +154,10 @@ export class PortalController {
                 .innerJoinAndSelect("o.subscription", "sub")
                 .where("m.uid = :uid", { uid })
                 .andWhere("m.status = :memberStatus", { memberStatus: "active" })
-                .andWhere("o.status IN (:...ownerStatuses)", { ownerStatuses: ["active", "trialing"] })
+                .andWhere(
+                    "(o.status IN (:...ownerStatuses) OR (o.status = 'cancelled' AND o.currentPeriodEnd > :now))",
+                    { ownerStatuses: ["active", "trialing"], now: new Date() },
+                )
                 .getOne();
 
             if (membership) {
@@ -282,6 +285,9 @@ export class PortalController {
         }
 
         // Cancel the subscriber.
+        // Status is set to "cancelled" immediately, but currentPeriodEnd is
+        // preserved so the subscriber retains access until the end of the
+        // billing period they already paid for (Stripe-style "cancel at period end").
         subscriber.status = "cancelled";
         await AppDataSource.getRepository(Subscriber).save(subscriber);
 
@@ -296,7 +302,7 @@ export class PortalController {
             })
             .execute();
 
-        this.logger.info(`Portal: subscription cancelled for subscriber ${subscriberId}`);
+        this.logger.info(`Portal: subscription cancelled for subscriber ${subscriberId} (access until ${subscriber.currentPeriodEnd?.toISOString() ?? "now"})`);
 
         // Dispatch outgoing webhook.
         await this.outgoingWebhooks.dispatch("subscription.cancelled", {
@@ -304,9 +310,10 @@ export class PortalController {
             subscriptionId: subscriber.subscriptionId,
             uid,
             cancelledVia: "portal",
+            accessUntil: subscriber.currentPeriodEnd?.toISOString() ?? null,
         });
 
-        return { success: true, status: "cancelled" };
+        return { success: true, status: "cancelled", accessUntil: subscriber.currentPeriodEnd ?? null };
     }
 
     /**

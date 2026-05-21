@@ -111,6 +111,9 @@ export function PortalPage() {
     const [showChangeModal, setShowChangeModal] = createSignal(false);
     const [showRenewModal, setShowRenewModal] = createSignal(false);
     const [selectedPlan, setSelectedPlan] = createSignal("");
+    // Change plan: step 1 = pick plan name, step 2 = pick variant
+    const [changePlanStep, setChangePlanStep] = createSignal<1 | 2>(1);
+    const [selectedGroupName, setSelectedGroupName] = createSignal("");
 
     // ─── Load Data ──────────────────────────────────────────────
 
@@ -245,6 +248,37 @@ export function PortalPage() {
         const d = data();
         if (!d?.subscriber) return [];
         return d.availablePlans.filter((p) => p.id !== d.subscriber!.subscription.id);
+    };
+
+    // Group ALL available plans by name (including current, so we can show it as selected)
+    const planGroups = () => {
+        const d = data();
+        if (!d) return [];
+        const map = new Map<string, PlanInfo[]>();
+        for (const p of d.availablePlans) {
+            if (!map.has(p.name)) map.set(p.name, []);
+            map.get(p.name)!.push(p);
+        }
+        return [...map.entries()].map(([name, variants]) => ({ name, variants }));
+    };
+
+    const currentPlanName = () => data()?.subscriber?.subscription.name ?? "";
+
+    // Variants of the selected group (step 2), excluding the exact current plan id
+    const selectedGroupVariants = () => {
+        const d = data();
+        if (!d) return [];
+        const g = planGroups().find(g => g.name === selectedGroupName());
+        if (!g) return [];
+        return g.variants;
+    };
+
+    const openChangeModal = () => {
+        setSelectedPlan("");
+        setSelectedGroupName("");
+        setChangePlanStep(1);
+        setActionError("");
+        setShowChangeModal(true);
     };
 
     return (
@@ -410,7 +444,7 @@ export function PortalPage() {
                                             <Show when={canChange() && changePlans().length > 0}>
                                                 <button
                                                     class="portal-action-card"
-                                                    onClick={() => { setSelectedPlan(""); setActionError(""); setShowChangeModal(true); }}
+                                                    onClick={() => { openChangeModal(); }}
                                                 >
                                                     <div class="portal-action-icon">
                                                         <ArrowRightLeft size={20} />
@@ -516,41 +550,110 @@ export function PortalPage() {
                         <button class="portal-modal-close" onClick={() => setShowChangeModal(false)}>
                             <X size={18} />
                         </button>
-                        <div class="portal-modal-title">{t("portal.changeTitle")}</div>
-                        <div class="portal-modal-desc">
-                            {t("portal.changePlanModalDesc")}
-                        </div>
 
-                        <div class="portal-plan-list">
-                            <For each={changePlans()}>
-                                {(plan) => (
-                                    <label
-                                        class={`portal-plan-option ${selectedPlan() === plan.id ? "selected" : ""}`}
-                                        onClick={() => setSelectedPlan(plan.id)}
-                                    >
-                                        <input type="radio" name="plan" checked={selectedPlan() === plan.id} />
-                                        <div class="provider-radio" />
-                                        <div class="portal-plan-details">
-                                            <div class="portal-plan-name">{plan.name}</div>
-                                            <div class="portal-plan-price">
-                                                {formatPrice(plan.amount, plan.currency)}
-                                                <span class="portal-plan-interval"> / {intervalLabel(plan.interval, plan.intervalCount)}</span>
-                                            </div>
-                                        </div>
-                                    </label>
-                                )}
-                            </For>
-                        </div>
+                        {/* Step 1 — pick a plan group */}
+                        <Show when={changePlanStep() === 1}>
+                            <div class="portal-modal-title">{t("portal.changeTitle")}</div>
+                            <div class="portal-modal-desc">{t("portal.changePlanModalDesc")}</div>
 
-                        <Show when={actionError()}><div class="error-msg">{actionError()}</div></Show>
-                        <div class="portal-modal-actions">
-                            <button class="portal-btn portal-btn-ghost" onClick={() => setShowChangeModal(false)} disabled={actionLoading()}>
-                                {t("common.cancel")}
+                            <div class="portal-plan-list">
+                                <For each={planGroups()}>
+                                    {(group) => {
+                                        const isCurrent = group.name === currentPlanName();
+                                        return (
+                                            <button
+                                                class={`portal-plan-card ${
+                                                    isCurrent ? "portal-plan-card-current" : ""
+                                                }`}
+                                                onClick={() => {
+                                                    setSelectedGroupName(group.name);
+                                                    // If only 1 variant — pick it directly
+                                                    if (group.variants.length === 1) {
+                                                        setSelectedPlan(group.variants[0].id);
+                                                    } else {
+                                                        setSelectedPlan("");
+                                                    }
+                                                    setChangePlanStep(2);
+                                                }}
+                                            >
+                                                <div class="portal-plan-card-header">
+                                                    <div class="portal-plan-card-name">{group.name}</div>
+                                                    <Show when={isCurrent}>
+                                                        <span class="portal-plan-card-badge">{t("portal.currentPlan")}</span>
+                                                    </Show>
+                                                </div>
+                                                <div class="portal-plan-card-variants">
+                                                    {group.variants.length === 1
+                                                        ? `${formatPrice(group.variants[0].amount, group.variants[0].currency)} / ${intervalLabel(group.variants[0].interval, group.variants[0].intervalCount)}`
+                                                        : t("portal.variantsCount", { count: String(group.variants.length) })
+                                                    }
+                                                </div>
+                                            </button>
+                                        );
+                                    }}
+                                </For>
+                            </div>
+                        </Show>
+
+                        {/* Step 2 — pick a variant */}
+                        <Show when={changePlanStep() === 2}>
+                            <button class="portal-back-btn" onClick={() => { setChangePlanStep(1); setSelectedPlan(""); }}>
+                                ← {t("common.back")}
                             </button>
-                            <button class="portal-btn portal-btn-primary" onClick={changePlan} disabled={actionLoading() || !selectedPlan()}>
-                                {actionLoading() ? t("common.processing") : t("portal.continueToPaymentBtn")}
-                            </button>
-                        </div>
+                            <div class="portal-modal-title">{selectedGroupName()}</div>
+                            <div class="portal-modal-desc">{t("portal.pickVariantDesc")}</div>
+
+                            <div class="portal-plan-list">
+                                <For each={selectedGroupVariants()}>
+                                    {(variant) => {
+                                        const isCurrent = variant.id === data()?.subscriber?.subscription.id;
+                                        return (
+                                            <label
+                                                class={`portal-plan-option ${
+                                                    selectedPlan() === variant.id ? "selected" : ""
+                                                } ${isCurrent ? "portal-plan-option-current" : ""}`}
+                                                onClick={() => !isCurrent && setSelectedPlan(variant.id)}
+                                            >
+                                                <input
+                                                    type="radio"
+                                                    name="variant"
+                                                    checked={selectedPlan() === variant.id}
+                                                    disabled={isCurrent}
+                                                />
+                                                <div class="provider-radio" />
+                                                <div class="portal-plan-details">
+                                                    <div class="portal-plan-name">
+                                                        {formatPrice(variant.amount, variant.currency)}
+                                                        <Show when={isCurrent}>
+                                                            <span class="portal-plan-current-badge">{t("portal.currentPlan")}</span>
+                                                        </Show>
+                                                    </div>
+                                                    <div class="portal-plan-price">
+                                                        <span class="portal-plan-interval">
+                                                            {intervalLabel(variant.interval, variant.intervalCount)}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            </label>
+                                        );
+                                    }}
+                                </For>
+                            </div>
+
+                            <Show when={actionError()}><div class="error-msg">{actionError()}</div></Show>
+                            <div class="portal-modal-actions">
+                                <button class="portal-btn portal-btn-ghost" onClick={() => setShowChangeModal(false)} disabled={actionLoading()}>
+                                    {t("common.cancel")}
+                                </button>
+                                <button
+                                    class="portal-btn portal-btn-primary"
+                                    onClick={changePlan}
+                                    disabled={actionLoading() || !selectedPlan() || selectedPlan() === data()?.subscriber?.subscription.id}
+                                >
+                                    {actionLoading() ? t("common.processing") : t("portal.continueToPaymentBtn")}
+                                </button>
+                            </div>
+                        </Show>
                     </div>
                 </div>
             </Show>

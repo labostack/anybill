@@ -28,6 +28,12 @@ function fmtAmount(amount: number, currency: string) {
     return new Intl.NumberFormat("en-US", { style: "currency", currency }).format(amount / 100);
 }
 
+function fmtInterval(interval: string, intervalCount: number = 1): string {
+    if (interval === "one_time") return "one-time";
+    const unit = interval === "day" ? "day" : interval === "week" ? "week" : interval === "month" ? "month" : "year";
+    return intervalCount === 1 ? `/ ${unit}` : `/ every ${intervalCount} ${unit}s`;
+}
+
 export function Subscribers() {
     const [data, setData] = createSignal<any>({ items: [], total: 0 });
     const [statusFilter, setStatusFilter] = createSignal("");
@@ -190,6 +196,17 @@ export function Subscribers() {
             if (!seen.has(s.id)) seen.set(s.id, s.name);
         }
         return [...seen.entries()];
+    });
+
+    // Unique plans by name+interval for Grant/Change Plan selects
+    // (collapses EUR/RUB variants of same plan+period into one entry)
+    const uniquePlans = createMemo(() => {
+        const seen = new Map<string, any>();
+        for (const s of subscriptions()) {
+            const key = `${s.name}::${s.interval}::${s.intervalCount ?? 1}`;
+            if (!seen.has(key)) seen.set(key, s);
+        }
+        return [...seen.values()];
     });
 
     return (
@@ -466,8 +483,8 @@ export function Subscribers() {
                             <label>Plan</label>
                             <select value={grantPlanId()} onChange={(e) => setGrantPlanId(e.target.value)}>
                                 <option value="">Keep current plan</option>
-                                <For each={subscriptions()}>{(s: any) =>
-                                    <option value={s.id}>{s.name} — {fmtAmount(s.amount, s.currency)} / {s.interval}</option>
+                                <For each={uniquePlans()}>{(s: any) =>
+                                    <option value={s.id}>{s.name} {fmtInterval(s.interval, s.intervalCount)}</option>
                                 }</For>
                             </select>
                         </div>
@@ -498,8 +515,8 @@ export function Subscribers() {
                             <label>New plan</label>
                             <select value={newPlanId()} onChange={(e) => setNewPlanId(e.target.value)}>
                                 <option value="">Select a plan...</option>
-                                <For each={subscriptions()}>{(s: any) =>
-                                    <option value={s.id}>{s.name} — {fmtAmount(s.amount, s.currency)} / {s.interval}</option>
+                                <For each={uniquePlans()}>{(s: any) =>
+                                    <option value={s.id}>{s.name} {fmtInterval(s.interval, s.intervalCount)}</option>
                                 }</For>
                             </select>
                         </div>

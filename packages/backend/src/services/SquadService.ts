@@ -308,6 +308,9 @@ export class SquadService {
         const memberRepo = AppDataSource.getRepository(SquadMember);
 
         // 1. Check direct subscription
+        // Also grant access to cancelled subscribers who are still within their paid period
+        // (cancel-at-period-end semantics: status = "cancelled" but currentPeriodEnd > now).
+        const now = new Date();
         const directWhere: any = { uid, status: In(["active", "trialing"]) };
         if (subscriptionId) directWhere.subscriptionId = subscriptionId;
 
@@ -324,7 +327,25 @@ export class SquadService {
             };
         }
 
+        // Check cancelled-but-within-period subscribers separately
+        const cancelledWhere: any = { uid, status: "cancelled" };
+        if (subscriptionId) cancelledWhere.subscriptionId = subscriptionId;
+        const cancelledSub = await subscriberRepo.findOne({
+            where: cancelledWhere,
+            relations: ["subscription"],
+            order: { currentPeriodEnd: "DESC" },
+        });
+        if (cancelledSub?.currentPeriodEnd && cancelledSub.currentPeriodEnd > now) {
+            return {
+                hasAccess: true,
+                accessType: "direct",
+                subscriber: cancelledSub,
+                subscription: cancelledSub.subscription,
+            };
+        }
+
         // 2. Check squad membership
+        // Owner must be active OR trialing OR cancelled-but-within-period (cancel-at-period-end).
         const memberQuery = memberRepo
             .createQueryBuilder("m")
             .innerJoinAndSelect("m.squad", "s")
@@ -332,7 +353,10 @@ export class SquadService {
             .innerJoinAndSelect("o.subscription", "sub")
             .where("m.uid = :uid", { uid })
             .andWhere("m.status = :memberStatus", { memberStatus: "active" })
-            .andWhere("o.status = :ownerStatus", { ownerStatus: "active" });
+            .andWhere(
+                "(o.status IN (:...activeStatuses) OR (o.status = 'cancelled' AND o.currentPeriodEnd > :now))",
+                { activeStatuses: ["active", "trialing"], now },
+            );
 
         if (subscriptionId) {
             memberQuery.andWhere("o.subscriptionId = :subId", { subId: subscriptionId });

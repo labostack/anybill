@@ -21,6 +21,7 @@ import { AppError } from "../../core/errors/AppError";
 import { ErrorCode } from "../../core/errors/ErrorCode";
 import { UpdateSubscriberBody, GrantPlanBody } from "../../models/SubscriberModels";
 import { SubscriberListQuery } from "../../models/QueryModels";
+import { OutgoingWebhookService } from "../../services/OutgoingWebhookService";
 import { Like } from "typeorm";
 
 @Controller("/subscribers")
@@ -28,7 +29,10 @@ import { Like } from "typeorm";
 @Tags("Subscribers")
 
 export class SubscribersController {
-    constructor(private readonly billing: BillingService) {}
+    constructor(
+        private readonly billing: BillingService,
+        private readonly outgoingWebhooks: OutgoingWebhookService,
+    ) {}
 
     private repo() {
         return AppDataSource.getRepository(Subscriber);
@@ -157,7 +161,32 @@ export class SubscribersController {
         }
         // else: keep existing or null — one-time / manual management
 
-        return this.repo().save(sub);
+        const saved = await this.repo().save(sub);
+
+        // Auto-create squad if the plan requires it and subscriber doesn't have one yet.
+        const planId = data.subscriptionId || sub.subscriptionId;
+        if (planId) {
+            const plan = await AppDataSource.getRepository(Subscription).findOneBy({ id: planId });
+            if (plan?.squadEnabled) {
+                const squadRepo = AppDataSource.getRepository(Squad);
+                const existingSquad = await squadRepo.findOneBy({ ownerId: saved.id });
+                if (!existingSquad) {
+                    const squad = squadRepo.create({
+                        ownerId: saved.id,
+                        maxMembers: plan.squadMaxMembers || 0,
+                    });
+                    await squadRepo.save(squad);
+                    await this.outgoingWebhooks.dispatch("squad.created", {
+                        squadId: squad.id,
+                        ownerUid: saved.uid,
+                        subscriberId: saved.id,
+                        subscriptionId: plan.id,
+                    });
+                }
+            }
+        }
+
+        return saved;
     }
 
     /** Cancel a recurring subscription. One-time plans cannot be cancelled. */

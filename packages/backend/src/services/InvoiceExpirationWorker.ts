@@ -24,11 +24,16 @@ import { BillingService } from "./BillingService";
 import { OutgoingWebhookService } from "./OutgoingWebhookService";
 import { SquadService } from "./SquadService";
 
-const POLL_MS = Number(process.env.INVOICE_EXPIRE_POLL_MS) || 60_000;
+/** Invoice auto-expiration poll interval (default 5 min — short enough for any practical TTL). */
+const INVOICE_POLL_MS = Number(process.env.INVOICE_EXPIRE_POLL_MS) || 300_000;
+
+/** Subscription/trial/invite expiration poll interval (default 30 min). */
+const SUBSCRIPTION_POLL_MS = Number(process.env.SUBSCRIPTION_EXPIRE_POLL_MS) || 1_800_000;
 
 @Injectable()
 export class InvoiceExpirationWorker implements OnInit, OnDestroy {
-    private timer?: ReturnType<typeof setInterval>;
+    private invoiceTimer?: ReturnType<typeof setInterval>;
+    private subscriptionTimer?: ReturnType<typeof setInterval>;
 
     @Inject()
     logger!: Logger;
@@ -40,16 +45,24 @@ export class InvoiceExpirationWorker implements OnInit, OnDestroy {
     ) {}
 
     async $onInit(): Promise<void> {
-        this.timer = setInterval(async () => {
-            await this.processExpiredInvoices();
+        // Fast loop: invoice auto-expiration (minutes granularity).
+        this.invoiceTimer = setInterval(() => this.processExpiredInvoices(), INVOICE_POLL_MS);
+
+        // Slow loop: subscription/trial/invite expiration (hours granularity).
+        this.subscriptionTimer = setInterval(async () => {
             await this.processExpiredTrials();
+            await this.processExpiredCancelledSubscriptions();
             await this.squads.expireStaleInvites();
-        }, POLL_MS);
-        this.logger.info(`Invoice, trial, and invite expiration worker started (poll every ${POLL_MS}ms)`);
+        }, SUBSCRIPTION_POLL_MS);
+
+        this.logger.info(
+            `Workers started — invoices: every ${INVOICE_POLL_MS / 60_000}min, subscriptions: every ${SUBSCRIPTION_POLL_MS / 60_000}min`,
+        );
     }
 
     $onDestroy(): void {
-        if (this.timer) clearInterval(this.timer);
+        if (this.invoiceTimer) clearInterval(this.invoiceTimer);
+        if (this.subscriptionTimer) clearInterval(this.subscriptionTimer);
     }
 
     // ─── Core Logic ─────────────────────────────────────────────
@@ -143,6 +156,55 @@ export class InvoiceExpirationWorker implements OnInit, OnDestroy {
             this.logger.info(`Auto-expired ${expiredTrials.length} trialing subscriber(s)`);
         } catch (err: any) {
             this.logger.error(`Trial expiration check error: ${err.message}`);
+        }
+    }
+
+    /**
+     * Notify when cancelled subscriptions' paid period has elapsed.
+     *
+     * Subscribers cancelled via portal retain access until currentPeriodEnd.
+     * Once that date passes, access is already denied by checkAccess — but we
+     * also fire a subscription.expired webhook so the client app can clean up
+     * (revoke tokens, send emails, etc.) and mark them as expired in the DB.
+     */
+    private async processExpiredCancelledSubscriptions(): Promise<void> {
+        try {
+            const subscriberRepo = AppDataSource.getRepository(Subscriber);
+            const now = new Date();
+
+            // Find cancelled subscribers whose paid period just ended.
+            // We mark them as "expired" so they don't keep appearing in cancelled queries.
+            const expiredCancelled = await subscriberRepo.find({
+                where: {
+                    status: "cancelled",
+                    currentPeriodEnd: LessThanOrEqual(now),
+                },
+            });
+
+            if (expiredCancelled.length === 0) return;
+
+            for (const subscriber of expiredCancelled) {
+                // Only process those that had a real period end set (skip null / legacy)
+                if (!subscriber.currentPeriodEnd) continue;
+
+                subscriber.status = "expired";
+                await subscriberRepo.save(subscriber);
+
+                await this.outgoingWebhooks.dispatch("subscription.expired", {
+                    subscriberId: subscriber.id,
+                    subscriptionId: subscriber.subscriptionId,
+                    uid: subscriber.uid,
+                    expiredAt: subscriber.currentPeriodEnd.toISOString(),
+                });
+
+                this.logger.info(`Cancelled subscription expired for subscriber ${subscriber.id} (uid: ${subscriber.uid})`);
+            }
+
+            if (expiredCancelled.length > 0) {
+                this.logger.info(`Transitioned ${expiredCancelled.length} cancelled → expired subscriber(s)`);
+            }
+        } catch (err: any) {
+            this.logger.error(`Cancelled subscription expiration check error: ${err.message}`);
         }
     }
 }
