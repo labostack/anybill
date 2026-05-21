@@ -15,6 +15,8 @@ import { AppDataSource } from "../../core/datasource";
 import { Subscriber } from "../../entities/Subscriber";
 import { Subscription } from "../../entities/Subscription";
 import { Squad } from "../../entities/Squad";
+import { SquadMember } from "../../entities/SquadMember";
+import { SquadInvite } from "../../entities/SquadInvite";
 import { Invoice } from "../../entities/Invoice";
 import { BillingService } from "../../services/BillingService";
 import { AppError } from "../../core/errors/AppError";
@@ -278,10 +280,23 @@ export class SubscribersController {
         const sub = await this.repo().findOneBy({ id });
         if (!sub) throw new AppError(404, ErrorCode.SUBSCRIBER_NOT_FOUND, "Subscriber not found");
 
-        // Remove related invoices first to avoid FK constraint issues.
-        const invoiceRepo = AppDataSource.getRepository(Invoice);
-        await invoiceRepo.delete({ subscriberId: id });
+        // Resolve squad owned by this subscriber (if any).
+        const squadRepo = AppDataSource.getRepository(Squad);
+        const squad = await squadRepo.findOneBy({ ownerId: id });
 
+        if (squad) {
+            // 1. Delete squad invites (FK → squad)
+            await AppDataSource.getRepository(SquadInvite).delete({ squadId: squad.id });
+            // 2. Delete squad members (FK → squad)
+            await AppDataSource.getRepository(SquadMember).delete({ squadId: squad.id });
+            // 3. Delete the squad itself (FK → subscriber)
+            await squadRepo.delete({ id: squad.id });
+        }
+
+        // 4. Delete related invoices (FK → subscriber)
+        await AppDataSource.getRepository(Invoice).delete({ subscriberId: id });
+
+        // 5. Finally delete the subscriber
         await this.repo().delete({ id });
         return { success: true };
     }
