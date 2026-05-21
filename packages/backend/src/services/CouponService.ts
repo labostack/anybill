@@ -86,7 +86,8 @@ export class CouponService {
                 .innerJoin("invoice.subscriber", "subscriber")
                 .where("invoice.couponId = :couponId", { couponId: coupon.id })
                 .andWhere("subscriber.uid = :uid", { uid })
-                .andWhere("invoice.status IN (:...statuses)", { statuses: ["paid"] })
+                // Include 'pending' to catch concurrent in-flight payments with the same coupon.
+                .andWhere("invoice.status IN (:...statuses)", { statuses: ["paid", "pending"] })
                 .getCount();
 
             if (userInvoicesWithCoupon >= coupon.maxRedemptionsPerUser) {

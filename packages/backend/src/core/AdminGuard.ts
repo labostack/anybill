@@ -29,7 +29,8 @@ export class AdminGuard {
         const cookies = (req.headers.cookie || "").split(";").map((c) => c.trim());
         const sessionCookie = cookies.find((c) => c.startsWith(COOKIE_NAME + "="));
         if (sessionCookie) {
-            token = sessionCookie.split("=")[1];
+            // Use slice instead of split("=")[1] to preserve "=" chars in base64 JWT values.
+            token = sessionCookie.slice(COOKIE_NAME.length + 1);
         }
 
         if (!token) {

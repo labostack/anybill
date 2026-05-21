@@ -107,14 +107,15 @@ export class PortalController {
             order: { updatedAt: "DESC" },
         });
 
-        // Rank by status priority.
+        // Rank by status priority (lower = better).
+        // active beats trialing beats pending, etc.
         const statusPriority: Record<string, number> = {
             active: 0,
-            trialing: 0,
-            pending: 1,
-            past_due: 2,
-            expired: 3,
-            cancelled: 4,
+            trialing: 1,
+            pending: 2,
+            past_due: 3,
+            expired: 4,
+            cancelled: 5,
         };
         allSubscribers.sort(
             (a, b) => (statusPriority[a.status] ?? 99) - (statusPriority[b.status] ?? 99),
@@ -284,6 +285,14 @@ export class PortalController {
             throw new AppError(400, ErrorCode.SUBSCRIPTION_CANCELED, "Subscription is already cancelled");
         }
 
+        if (subscriber.status === "expired") {
+            throw new AppError(400, ErrorCode.BAD_REQUEST, "Subscription has already expired");
+        }
+
+        if (subscriber.status === "pending") {
+            throw new AppError(400, ErrorCode.BAD_REQUEST, "Cannot cancel a subscription with no completed payment");
+        }
+
         // Cancel the subscriber.
         // Status is set to "cancelled" immediately, but currentPeriodEnd is
         // preserved so the subscriber retains access until the end of the
@@ -348,6 +357,12 @@ export class PortalController {
             throw new AppError(400, ErrorCode.SUBSCRIPTION_ALREADY_ACTIVE, "Already on this plan");
         }
 
+        // Only allow plan changes for meaningful statuses.
+        const changeableStatuses = ["active", "trialing", "cancelled", "past_due"];
+        if (!changeableStatuses.includes(subscriber.status)) {
+            throw new AppError(400, ErrorCode.BAD_REQUEST, `Cannot change plan from status "${subscriber.status}"`);
+        }
+
         // Do NOT cancel the current subscription yet.
         // The old subscriber will be cancelled only after the new payment is confirmed
         // (handled in BillingService.onPaymentConfirmed via prev_subscriber_id in the token).
@@ -399,6 +414,14 @@ export class PortalController {
 
         if (subscriber.status === "active") {
             throw new AppError(400, ErrorCode.SUBSCRIPTION_ALREADY_ACTIVE, "Subscription is already active");
+        }
+
+        if (subscriber.status === "trialing") {
+            throw new AppError(400, ErrorCode.SUBSCRIPTION_ALREADY_ACTIVE, "Trial subscription is still active");
+        }
+
+        if (subscriber.status === "pending") {
+            throw new AppError(400, ErrorCode.BAD_REQUEST, "A pending payment is already in progress — complete or cancel it first");
         }
 
         if (subscriber.subscription.interval === "one_time") {

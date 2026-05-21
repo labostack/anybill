@@ -4,7 +4,7 @@
  * Request body models for subscriber management endpoints.
  */
 
-import { Optional, Enum, Property, Format } from "@tsed/schema";
+import { Optional, Enum, Property, Format, Integer, Min } from "@tsed/schema";
 import type { SubscriberStatus } from "../entities/Subscriber";
 
 const SUBSCRIBER_STATUSES = ["pending", "trialing", "active", "cancelled", "expired", "past_due"] as const;
@@ -26,12 +26,12 @@ export class UpdateSubscriberBody {
 
     /** Override the current period start date (ISO string). */
     @Optional()
-    @Property(String)
+    @Format("date-time")
     currentPeriodStart?: string;
 
     /** Override the current period end date (ISO string). */
     @Optional()
-    @Property(String)
+    @Format("date-time")
     currentPeriodEnd?: string;
 }
 
@@ -44,7 +44,8 @@ export class GrantPlanBody {
 
     /** Optional: access expires after this many days from now. 0 = no expiry. */
     @Optional()
-    @Property(Number)
+    @Integer()
+    @Min(1)
     periodDays?: number;
 
     /** Optional: explicit period end date (ISO string). Takes priority over periodDays. */

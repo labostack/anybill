@@ -117,13 +117,28 @@ export class SubscribersController {
         if (data.currentPeriodEnd !== undefined) sub.currentPeriodEnd = new Date(data.currentPeriodEnd);
 
         // Plan reassignment — validate the new plan exists.
+        let planChanged = false;
+        let newPlan: Subscription | null = null;
         if (data.subscriptionId !== undefined) {
-            const plan = await AppDataSource.getRepository(Subscription).findOneBy({ id: data.subscriptionId });
-            if (!plan) throw new AppError(404, ErrorCode.SUBSCRIPTION_NOT_FOUND, "Subscription plan not found");
+            newPlan = await AppDataSource.getRepository(Subscription).findOneBy({ id: data.subscriptionId });
+            if (!newPlan) throw new AppError(404, ErrorCode.SUBSCRIPTION_NOT_FOUND, "Subscription plan not found");
             sub.subscriptionId = data.subscriptionId;
+            planChanged = true;
         }
 
-        return this.repo().save(sub);
+        const saved = await this.repo().save(sub);
+
+        // Sync squad.maxMembers when the plan changes via direct update.
+        if (planChanged && newPlan) {
+            const squadRepo = AppDataSource.getRepository(Squad);
+            const existingSquad = await squadRepo.findOneBy({ ownerId: saved.id });
+            if (existingSquad && newPlan.squadEnabled) {
+                existingSquad.maxMembers = newPlan.squadMaxMembers || 0;
+                await squadRepo.save(existingSquad);
+            }
+        }
+
+        return saved;
     }
 
     /**
@@ -164,6 +179,7 @@ export class SubscribersController {
         const saved = await this.repo().save(sub);
 
         // Auto-create squad if the plan requires it and subscriber doesn't have one yet.
+        // If a squad already exists, sync maxMembers to the (possibly new) plan's limit.
         const planId = data.subscriptionId || sub.subscriptionId;
         if (planId) {
             const plan = await AppDataSource.getRepository(Subscription).findOneBy({ id: planId });
@@ -182,6 +198,10 @@ export class SubscribersController {
                         subscriberId: saved.id,
                         subscriptionId: plan.id,
                     });
+                } else {
+                    // Sync maxMembers to the new plan's limit (plan upgrade/downgrade via admin override).
+                    existingSquad.maxMembers = plan.squadMaxMembers || 0;
+                    await squadRepo.save(existingSquad);
                 }
             }
         }

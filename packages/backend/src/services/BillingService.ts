@@ -367,6 +367,7 @@ export class BillingService implements OnInit {
         }
 
         // 5. Auto-create squad if plan supports it.
+        // Sync maxMembers if the squad already exists (e.g. re-activating a trial).
         if (subscription.squadEnabled) {
             const squadRepo = AppDataSource.getRepository(Squad);
             const existingSquad = await squadRepo.findOneBy({ ownerId: subscriber.id });
@@ -384,6 +385,10 @@ export class BillingService implements OnInit {
                     subscriberId: subscriber.id,
                     subscriptionId: subscription.id,
                 });
+            } else {
+                // Sync maxMembers to current plan (re-trial or plan adjustment).
+                existingSquad.maxMembers = subscription.squadMaxMembers || 0;
+                await squadRepo.save(existingSquad);
             }
         }
 
@@ -412,13 +417,21 @@ export class BillingService implements OnInit {
         const invoiceRepo = AppDataSource.getRepository(Invoice);
         const subscriberRepo = AppDataSource.getRepository(Subscriber);
 
-        const invoice = await invoiceRepo.findOne({
-            where: [
-                { providerInvoiceId },
-                { id: metadata?.invoiceId },
-            ],
-        });
+        // Prefer lookup by our own invoiceId (set at creation, most reliable).
+        // Fall back to providerInvoiceId if metadata.invoiceId is absent.
+        let invoice = metadata?.invoiceId
+            ? await invoiceRepo.findOneBy({ id: metadata.invoiceId })
+            : null;
+        if (!invoice) {
+            invoice = await invoiceRepo.findOneBy({ providerInvoiceId });
+        }
         if (!invoice) return;
+
+        // Idempotency guard — provider may retry the same webhook.
+        if (invoice.status !== "pending") {
+            this.logger.warn(`onPaymentConfirmed: invoice ${invoice.id} already in status "${invoice.status}", skipping`);
+            return;
+        }
 
         invoice.status = "paid";
         invoice.paidAt = new Date();
@@ -477,16 +490,33 @@ export class BillingService implements OnInit {
                 }
 
                 // Clear the prevSubscriberId from metadata — no longer needed.
-                subscriber.metadata = { ...subscriber.metadata, prevSubscriberId: undefined };
+                // Use destructuring to properly remove the key (undefined is stripped by JSON.stringify).
+                const { prevSubscriberId: _removed, ...restMeta } = subscriber.metadata ?? {};
+                subscriber.metadata = Object.keys(restMeta).length > 0 ? restMeta : null;
                 await subscriberRepo.save(subscriber);
             }
 
             // Auto-create squad for squad-enabled plans.
+            // If this is a plan change (prevSubscriberId), migrate the old squad to the
+            // new subscriber rather than orphaning it and creating a duplicate.
             if (subscription && subscription.squadEnabled) {
                 const squadRepo = AppDataSource.getRepository(Squad);
-                const existingSquad = await squadRepo.findOneBy({ ownerId: subscriber.id });
-                if (!existingSquad) {
-                    const squad = squadRepo.create({
+                let squad = await squadRepo.findOneBy({ ownerId: subscriber.id });
+
+                if (!squad && prevSubscriberId) {
+                    // Migrate the old squad: reassign ownership to the new subscriber
+                    // and sync maxMembers to the new plan's limit.
+                    const oldSquad = await squadRepo.findOneBy({ ownerId: prevSubscriberId });
+                    if (oldSquad) {
+                        oldSquad.ownerId = subscriber.id;
+                        oldSquad.maxMembers = subscription.squadMaxMembers || 0;
+                        squad = await squadRepo.save(oldSquad);
+                        this.logger.info(`Migrated squad ${squad.id} from old subscriber ${prevSubscriberId} to ${subscriber.id} on plan ${subscription.name}`);
+                    }
+                }
+
+                if (!squad) {
+                    squad = squadRepo.create({
                         ownerId: subscriber.id,
                         maxMembers: subscription.squadMaxMembers || 0,
                     });
@@ -499,6 +529,10 @@ export class BillingService implements OnInit {
                         subscriberId: subscriber.id,
                         subscriptionId: subscription.id,
                     });
+                } else {
+                    // Sync maxMembers to the new plan's limit (covers existing squad without migration).
+                    squad.maxMembers = subscription.squadMaxMembers || 0;
+                    await squadRepo.save(squad);
                 }
             }
         }
@@ -583,6 +617,13 @@ export class BillingService implements OnInit {
         const invoiceRepo = AppDataSource.getRepository(Invoice);
         const subscriberRepo = AppDataSource.getRepository(Subscriber);
         const subscriptionRepo = AppDataSource.getRepository(Subscription);
+
+        // Idempotency: skip if we already have a paid invoice for this providerInvoiceId.
+        const existingPaid = await invoiceRepo.findOneBy({ providerInvoiceId, status: "paid" });
+        if (existingPaid) {
+            this.logger.warn(`onPaymentRenewed: duplicate renewal webhook for providerInvoiceId ${providerInvoiceId}, skipping`);
+            return;
+        }
 
         let subscriber: Subscriber | null = null;
 

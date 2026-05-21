@@ -151,15 +151,16 @@ export class SquadService {
             })
             .execute();
 
-        // Delete the squad itself
-        await squadRepo.remove(squad);
-
         this.logger.info(`Squad dissolved: ${squadId}`);
 
+        // Dispatch webhook BEFORE removing the squad from DB so the payload is complete.
         await this.outgoingWebhooks.dispatch("squad.dissolved", {
             squadId,
             ownerUid: squad.owner?.uid,
         });
+
+        // Delete the squad itself
+        await squadRepo.remove(squad);
     }
 
     // ─── Member Management ──────────────────────────────────────
@@ -415,9 +416,15 @@ export class SquadService {
             throw new Conflict("A pending invite already exists for this user");
         }
 
-        // Check member limit before creating the invite (0 = unlimited)
+        // Check member limit before creating the invite.
+        // Count both active members AND pending invites to prevent invite flooding
+        // beyond available slots (0 = unlimited).
         const activeCount = squad.members.filter((m) => m.status === "active").length;
-        if (squad.maxMembers > 0 && activeCount >= squad.maxMembers) {
+        const pendingInviteCount = await AppDataSource.getRepository(SquadInvite).countBy({
+            squadId,
+            status: "pending",
+        });
+        if (squad.maxMembers > 0 && (activeCount + pendingInviteCount) >= squad.maxMembers) {
             throw new BadRequest(`Squad member limit reached (max: ${squad.maxMembers})`);
         }
 
@@ -454,7 +461,7 @@ export class SquadService {
      * @param uid      - External user ID of the invitee.
      * @returns The updated invite.
      */
-    async acceptInvite(inviteId: string, uid: string): Promise<SquadInvite> {
+    async acceptInvite(inviteId: string, uid: string, squadId?: string): Promise<SquadInvite> {
         const inviteRepo = AppDataSource.getRepository(SquadInvite);
         const invite = await inviteRepo.findOne({
             where: { id: inviteId },
@@ -462,6 +469,8 @@ export class SquadService {
         });
         if (!invite) throw new NotFound("Invite not found");
         if (invite.uid !== uid) throw new BadRequest("This invite is not addressed to you");
+        // Verify the invite belongs to the specified squad (prevents IDOR).
+        if (squadId && invite.squadId !== squadId) throw new NotFound("Invite not found in this squad");
         if (invite.status !== "pending") throw new BadRequest(`Invite is already ${invite.status}`);
         if (invite.expiresAt && invite.expiresAt < new Date()) {
             invite.status = "expired";
@@ -502,7 +511,7 @@ export class SquadService {
      * @param uid      - External user ID of the invitee.
      * @returns The updated invite.
      */
-    async declineInvite(inviteId: string, uid: string): Promise<SquadInvite> {
+    async declineInvite(inviteId: string, uid: string, squadId?: string): Promise<SquadInvite> {
         const inviteRepo = AppDataSource.getRepository(SquadInvite);
         const invite = await inviteRepo.findOne({
             where: { id: inviteId },
@@ -510,6 +519,8 @@ export class SquadService {
         });
         if (!invite) throw new NotFound("Invite not found");
         if (invite.uid !== uid) throw new BadRequest("This invite is not addressed to you");
+        // Verify the invite belongs to the specified squad (prevents IDOR).
+        if (squadId && invite.squadId !== squadId) throw new NotFound("Invite not found in this squad");
         if (invite.status !== "pending") throw new BadRequest(`Invite is already ${invite.status}`);
 
         invite.status = "declined";

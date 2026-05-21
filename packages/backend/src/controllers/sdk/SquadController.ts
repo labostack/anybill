@@ -8,6 +8,7 @@
  */
 
 import { Controller, Get, Post, Delete, BodyParams, PathParams, QueryParams, UseBefore } from "@tsed/common";
+import { BadRequest } from "@tsed/exceptions";
 import { Tags, Summary, Description, Returns } from "@tsed/schema";
 import { SdkGuard } from "../../core/SdkGuard";
 import { SquadService } from "../../services/SquadService";
@@ -159,7 +160,8 @@ export class SquadController {
         @PathParams("inviteId") inviteId: string,
         @BodyParams() body: InviteActionBody,
     ) {
-        return this.squadService.acceptInvite(inviteId, body.uid);
+        // Pass squadId so the service can verify the invite belongs to this squad.
+        return this.squadService.acceptInvite(inviteId, body.uid, id);
     }
 
     /** Decline a squad invite (invitee action). */
@@ -174,7 +176,8 @@ export class SquadController {
         @PathParams("inviteId") inviteId: string,
         @BodyParams() body: InviteActionBody,
     ) {
-        return this.squadService.declineInvite(inviteId, body.uid);
+        // Pass squadId so the service can verify the invite belongs to this squad.
+        return this.squadService.declineInvite(inviteId, body.uid, id);
     }
 
     /** Cancel a pending invite (owner action). */
@@ -219,6 +222,9 @@ export class SquadController {
         @QueryParams("uid") uid: string,
         @QueryParams("subscription_id") subscriptionId?: string,
     ) {
+        if (!uid) {
+            throw new BadRequest("uid query parameter is required");
+        }
         return this.squadService.checkAccess(uid, subscriptionId);
     }
 }

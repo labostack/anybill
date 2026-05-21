@@ -135,7 +135,8 @@ export class AuthController {
         const sessionCookie = cookies.find((c: string) => c.startsWith(COOKIE_NAME + "="));
         if (sessionCookie) {
             try {
-                verifyJwt(sessionCookie.split("=")[1]);
+                // Use slice to preserve "=" padding chars in base64 JWT values.
+                verifyJwt(sessionCookie.slice(COOKIE_NAME.length + 1));
                 authenticated = true;
             } catch { /* expired or invalid */ }
         }
