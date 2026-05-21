@@ -39,7 +39,7 @@ export interface PaymentResult {
     action: PaymentAction;
     metadata?: Record<string, any>;
     /** Optional body to echo back verbatim to the webhook caller (set via `Payment.ignore(body)`). */
-    ignoreBody?: string | Buffer | Record<string, any> | unknown;
+    ignoreBody?: string | Uint8Array | Record<string, any> | unknown;
 }
 
 export class Payment {
@@ -52,7 +52,7 @@ export class Payment {
         return p;
     }
 
-    static ignore(body?: string | Buffer | Record<string, any> | unknown): PaymentResult {
+    static ignore(body?: string | Uint8Array | Record<string, any> | unknown): PaymentResult {
         return { id: "", action: "ignored", ...(body !== undefined && { ignoreBody: body }) };
     }
 

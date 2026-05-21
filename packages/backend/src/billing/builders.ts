@@ -129,11 +129,11 @@ export interface PaymentResult {
     metadata?: Record<string, any>;
     /**
      * Optional raw body to return verbatim to the webhook caller.
-     * Set via `Payment.ignore(body)`. Can be a string, Buffer, or any
+     * Set via `Payment.ignore(body)`. Can be a string, Uint8Array, or any
      * JSON-serialisable value. When present, the webhook controller
      * responds with this value directly instead of the default JSON envelope.
      */
-    ignoreBody?: string | Buffer | Record<string, any> | unknown;
+    ignoreBody?: string | Uint8Array | Record<string, any> | unknown;
 }
 
 /**
@@ -190,7 +190,7 @@ export class Payment {
      * // JSON echo (e.g. challenge handshake)
      * return Payment.ignore({ challenge: params.hub_challenge });
      */
-    static ignore(body?: string | Buffer | Record<string, any> | unknown): PaymentResult {
+    static ignore(body?: string | Uint8Array | Record<string, any> | unknown): PaymentResult {
         return { id: "", action: "ignored", ...(body !== undefined && { ignoreBody: body }) };
     }
 

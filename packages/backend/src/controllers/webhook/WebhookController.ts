@@ -45,7 +45,7 @@ export class WebhookController {
             // If the provider returned an explicit ignore body, echo it verbatim.
             if (result?.ignoreBody !== undefined) {
                 const body = result.ignoreBody;
-                if (typeof body === "string" || Buffer.isBuffer(body)) {
+                if (typeof body === "string" || Buffer.isBuffer(body) || body instanceof Uint8Array) {
                     return res.send(body);
                 }
                 return res.json(body);
