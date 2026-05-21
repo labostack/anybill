@@ -9,6 +9,16 @@ import { isEmbedded } from "../App";
 
 const API = "/api/checkout";
 
+/**
+ * Resolve a provider displayName that may be a plain string
+ * or a locale map `{ en: "...", ru: "..." }`.
+ * Priority: exact locale → "en" fallback → first value → empty string.
+ */
+function resolveDisplayName(name: string | Record<string, string>, lang: string): string {
+    if (typeof name === "string") return name;
+    return name[lang] ?? name["en"] ?? Object.values(name)[0] ?? "";
+}
+
 export function SecureCheckout() {
     const { t, locale, formatPrice, intervalLabel } = useI18n();
     const params = useParams<{ token: string }>();
@@ -307,7 +317,7 @@ export function SecureCheckout() {
 
                             <div class="provider-list">
                                 <For each={info().providers}>
-                                    {(provider: { id: string; displayName: string }) => (
+                                    {(provider: { id: string; displayName: string | Record<string, string> }) => (
                                         <label
                                             class={`provider-option ${selectedProvider() === provider.id ? "selected" : ""}`}
                                             onClick={() => setSelectedProvider(provider.id)}
@@ -319,7 +329,7 @@ export function SecureCheckout() {
                                             />
                                             <div class="provider-radio" />
                                             <span class="provider-name">
-                                                {provider.displayName}
+                                                {resolveDisplayName(provider.displayName, locale())}
                                             </span>
                                         </label>
                                     )}

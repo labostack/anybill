@@ -16,6 +16,8 @@
  * ```ts
  * class StripeProvider extends AnybillProvider {
  *   get displayName() { return "Stripe"; }
+ *   // or localized:
+ *   get displayName() { return { en: "Fast Payments System", ru: "Система быстрых платежей" }; }
  *   get capabilities(): ProviderCapability[] { return ["one_time", "recurring"]; }
  *
  *   @CreatePaymentLink()
@@ -34,14 +36,19 @@ export type ProviderCapability = "one_time" | "recurring";
  * methods using role decorators. The {@link BillingEngine} discovers
  * decorated methods at runtime via the {@link ProviderRegistry}.
  */
+/** Localized display name: either a plain string or a locale→string map. */
+export type DisplayName = string | Record<string, string>;
+
 export abstract class AnybillProvider {
     /**
      * Human-readable name shown in the checkout UI.
-     * Override this getter to customize the display name.
+     * Can return a plain string or a locale map `{ en: "...", ru: "..." }`.
+     * The checkout UI will pick the string matching the user's locale,
+     * falling back to `"en"` and then to the first available key.
      *
      * @returns The provider's display name (defaults to the class name).
      */
-    get displayName(): string {
+    get displayName(): DisplayName {
         return this.constructor.name;
     }
 

@@ -14,12 +14,17 @@ export type ProviderCapability = "one_time" | "recurring";
  * Subclasses declare their capabilities and implement payment lifecycle
  * methods using role decorators.
  */
+/** Localized display name: either a plain string or a locale→string map. */
+export type DisplayName = string | Record<string, string>;
+
 export abstract class AnybillProvider {
     /**
      * Human-readable name shown in the checkout UI.
-     * Override this getter to customize the display name.
+     * Can return a plain string or a locale map `{ en: "...", ru: "..." }`.
+     * The checkout UI will pick the string matching the user's locale,
+     * falling back to `"en"` and then to the first available key.
      */
-    get displayName(): string {
+    get displayName(): DisplayName {
         return this.constructor.name;
     }
 

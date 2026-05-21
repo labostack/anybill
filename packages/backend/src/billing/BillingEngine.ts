@@ -20,7 +20,7 @@
  * ```
  */
 
-import { AnybillProvider } from "./AnybillProvider";
+import { AnybillProvider, DisplayName } from "./AnybillProvider";
 import { BillingError } from "./BillingError";
 import { getMethodForRole, getRegisteredRoles, hasMethod } from "./ProviderRegistry";
 import type { PaymentLinkResult, PaymentResult } from "./builders";
@@ -68,8 +68,8 @@ export interface WebhookPayload {
 export interface ProviderInfo {
     /** Unique provider identifier (registration key). */
     id: string;
-    /** Human-readable display name. */
-    displayName: string;
+    /** Human-readable display name. May be a plain string or a locale→string map. */
+    displayName: DisplayName;
     /** Supported capabilities (e.g. `["one_time", "recurring"]`). */
     capabilities: string[];
 }
