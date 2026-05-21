@@ -116,8 +116,18 @@ export function SecureCheckout() {
             // Store invoiceId for confirm page
             sessionStorage.setItem("anybill_invoice", invoiceId);
 
-            // Redirect to payment gateway
-            window.location.href = paymentUrl;
+            if (isEmbedded) {
+                // When running inside an embed iframe: open the provider gateway in
+                // a new browser tab so it doesn't replace the iframe content.
+                // The iframe itself navigates to the confirm/polling page which will
+                // send a postMessage back to the parent when payment is confirmed.
+                window.open(paymentUrl, "_blank", "noopener,noreferrer");
+                window.location.href = `/pay/confirm/${invoiceId}`;
+            } else {
+                // Standalone mode: redirect directly to the provider gateway.
+                // The provider will redirect back to successRedirectUrl after payment.
+                window.location.href = paymentUrl;
+            }
         } catch (err: any) {
             setError(err.message);
             setLoading(false);
