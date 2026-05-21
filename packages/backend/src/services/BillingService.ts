@@ -88,7 +88,7 @@ export class BillingService implements OnInit {
      * @returns Invoice ID and payment URL.
      * @throws {Error} If the subscription doesn't exist or one-time was already purchased.
      */
-    async createPayment(subscriptionId: string, uid: string, providerName: string, couponCode?: string) {
+    async createPayment(subscriptionId: string, uid: string, providerName: string, couponCode?: string, prevSubscriberId?: string) {
         const invoiceRepo = AppDataSource.getRepository(Invoice);
         const subscriberRepo = AppDataSource.getRepository(Subscriber);
         const subscriptionRepo = AppDataSource.getRepository(Subscription);
@@ -99,7 +99,17 @@ export class BillingService implements OnInit {
         // Find or create subscriber.
         let subscriber = await subscriberRepo.findOneBy({ uid, subscriptionId });
         if (!subscriber) {
-            subscriber = subscriberRepo.create({ uid, subscriptionId, status: "pending" });
+            subscriber = subscriberRepo.create({
+                uid,
+                subscriptionId,
+                status: "pending",
+                // Carry prevSubscriberId so onPaymentConfirmed can cancel the old subscription.
+                metadata: prevSubscriberId ? { prevSubscriberId } : null,
+            });
+            await subscriberRepo.save(subscriber);
+        } else if (prevSubscriberId && !subscriber.metadata?.prevSubscriberId) {
+            // Subscriber already exists (e.g. returning after abandoned checkout) — refresh metadata.
+            subscriber.metadata = { ...(subscriber.metadata ?? {}), prevSubscriberId };
             await subscriberRepo.save(subscriber);
         }
 
@@ -442,6 +452,34 @@ export class BillingService implements OnInit {
             }
 
             await subscriberRepo.save(subscriber);
+
+            // If this payment is a plan change, cancel the previous subscriber
+            // now that the new one is confirmed active.
+            const prevSubscriberId = subscriber.metadata?.prevSubscriberId;
+            if (prevSubscriberId) {
+                const prevSubscriber = await subscriberRepo.findOneBy({ id: prevSubscriberId });
+                if (prevSubscriber && prevSubscriber.status !== "expired" && prevSubscriber.status !== "cancelled") {
+                    // Cancel at period end — keep access until currentPeriodEnd.
+                    prevSubscriber.status = "cancelled";
+                    await subscriberRepo.save(prevSubscriber);
+
+                    await this.outgoingWebhooks.dispatch("subscription.cancelled", {
+                        subscriberId: prevSubscriber.id,
+                        subscriptionId: prevSubscriber.subscriptionId,
+                        uid: prevSubscriber.uid,
+                        cancelledVia: "plan_change",
+                        accessUntil: prevSubscriber.currentPeriodEnd?.toISOString() ?? null,
+                        newSubscriberId: subscriber.id,
+                        newSubscriptionId: subscriber.subscriptionId,
+                    });
+
+                    this.logger.info(`Plan change: cancelled old subscriber ${prevSubscriberId} after new payment confirmed`);
+                }
+
+                // Clear the prevSubscriberId from metadata — no longer needed.
+                subscriber.metadata = { ...subscriber.metadata, prevSubscriberId: undefined };
+                await subscriberRepo.save(subscriber);
+            }
 
             // Auto-create squad for squad-enabled plans.
             if (subscription && subscription.squadEnabled) {

@@ -1161,6 +1161,83 @@ body {
     color: var(--text);
 }
 
+/* ─── Step 2: flat variant radio list ─────────────── */
+
+.portal-variant-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    padding: 12px 14px;
+    background: var(--bg-card);
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius);
+    cursor: pointer;
+    text-align: left;
+    font-family: var(--font);
+    transition: border-color 0.15s var(--ease), background 0.15s var(--ease);
+}
+
+.portal-variant-row:hover:not(:disabled) {
+    border-color: var(--border-hover);
+    background: var(--bg-elevated);
+}
+
+.portal-variant-row.selected {
+    border-color: var(--accent);
+    background: rgba(99, 179, 237, 0.05);
+}
+
+.portal-variant-row.current {
+    opacity: 0.5;
+    cursor: default;
+}
+
+.portal-variant-radio {
+    flex-shrink: 0;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    border: 2px solid var(--border-hover);
+    transition: border-color 0.15s var(--ease), background 0.15s var(--ease);
+    position: relative;
+}
+
+.portal-variant-radio.filled {
+    border-color: var(--accent);
+    background: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-glow);
+}
+
+.portal-variant-radio.filled::after {
+    content: "";
+    position: absolute;
+    inset: 3px;
+    border-radius: 50%;
+    background: #fff;
+}
+
+.portal-variant-interval {
+    flex: 1;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-secondary);
+}
+
+.portal-variant-row.selected .portal-variant-interval {
+    color: var(--text);
+}
+
+.portal-variant-price {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text);
+    white-space: nowrap;
+    display: flex;
+    align-items: center;
+    gap: 0;
+}
+
 /* Left-align title/desc in change plan modal (no icon above) */
 .portal-modal-lg .portal-modal-title,
 .portal-modal-lg .portal-modal-desc {

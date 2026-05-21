@@ -49,7 +49,13 @@ export class CheckoutController {
         }
         // Use couponCode from body, or from token if pre-applied
         const effectiveCouponCode = couponCode || payload.coupon_code;
-        return this.billing.createPayment(payload.sub_id, payload.uid, provider, effectiveCouponCode);
+        return this.billing.createPayment(
+            payload.sub_id,
+            payload.uid,
+            provider,
+            effectiveCouponCode,
+            payload.prev_subscriber_id,
+        );
     }
 
     /**

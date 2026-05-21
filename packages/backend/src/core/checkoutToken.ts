@@ -21,6 +21,11 @@ export interface CheckoutTokenPayload {
     exp: number;
     /** Pre-applied coupon code (optional). */
     coupon_code?: string;
+    /**
+     * Previous subscriber ID for plan-change flow.
+     * When set, the old subscriber is cancelled only after this payment is confirmed.
+     */
+    prev_subscriber_id?: string;
 }
 
 /** Default token TTL in seconds (30 minutes). */
@@ -29,10 +34,11 @@ const DEFAULT_TTL = 1800;
 /**
  * Create an encrypted checkout token.
  *
- * @param subId      - Subscription plan UUID.
- * @param uid        - External user identifier.
- * @param ttlSeconds - Token lifetime in seconds (default 1800 = 30 min).
- * @param couponCode - Optional pre-applied coupon code.
+ * @param subId              - Subscription plan UUID.
+ * @param uid                - External user identifier.
+ * @param ttlSeconds         - Token lifetime in seconds (default 1800 = 30 min).
+ * @param couponCode         - Optional pre-applied coupon code.
+ * @param prevSubscriberId   - Previous subscriber ID for plan-change flows.
  * @returns The encrypted token string and its expiration date.
  */
 export function createCheckoutToken(
@@ -40,10 +46,12 @@ export function createCheckoutToken(
     uid: string,
     ttlSeconds: number = DEFAULT_TTL,
     couponCode?: string,
+    prevSubscriberId?: string,
 ): { token: string; expiresAt: Date } {
     const exp = Math.floor(Date.now() / 1000) + ttlSeconds;
     const payload: CheckoutTokenPayload = { sub_id: subId, uid, exp };
     if (couponCode) payload.coupon_code = couponCode;
+    if (prevSubscriberId) payload.prev_subscriber_id = prevSubscriberId;
     const token = encryptToken(payload);
 
     return {

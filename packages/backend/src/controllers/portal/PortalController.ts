@@ -348,11 +348,12 @@ export class PortalController {
             throw new AppError(400, ErrorCode.SUBSCRIPTION_ALREADY_ACTIVE, "Already on this plan");
         }
 
-        // Cancel the current subscriber.
-        subscriber.status = "cancelled";
-        await AppDataSource.getRepository(Subscriber).save(subscriber);
+        // Do NOT cancel the current subscription yet.
+        // The old subscriber will be cancelled only after the new payment is confirmed
+        // (handled in BillingService.onPaymentConfirmed via prev_subscriber_id in the token).
+        // This ensures the user keeps access if they abandon the checkout.
 
-        // Cancel any pending invoices on the old subscription.
+        // Cancel any pending invoices on the old subscription (stale unpaid ones).
         await AppDataSource.getRepository(Invoice)
             .createQueryBuilder()
             .update(Invoice)
@@ -363,11 +364,18 @@ export class PortalController {
             })
             .execute();
 
-        // Create a checkout link for the new plan.
-        const { token: checkoutToken } = createCheckoutToken(newSubscriptionId, uid);
+        // Create a checkout link for the new plan, embedding the current subscriber ID
+        // so BillingService can cancel the old subscription after payment succeeds.
+        const { token: checkoutToken } = createCheckoutToken(
+            newSubscriptionId,
+            uid,
+            1800,
+            undefined,
+            subscriber.id,  // prevSubscriberId
+        );
         const checkoutUrl = `${CHECKOUT_ORIGIN}/pay/s/${checkoutToken}`;
 
-        this.logger.info(`Portal: plan change ${subscriber.subscriptionId} → ${newSubscriptionId} for uid ${uid}`);
+        this.logger.info(`Portal: plan change initiated ${subscriber.subscriptionId} → ${newSubscriptionId} for uid ${uid}`);
 
         return { checkoutUrl };
     }
