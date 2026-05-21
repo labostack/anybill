@@ -101,6 +101,8 @@ export interface Squad {
     id: string;
     /** Internal AnyBill subscriber ID of the owner. */
     ownerId: string;
+    /** External user ID of the owner (from your application). */
+    ownerUid: string;
     /** Maximum members allowed (excluding owner). 0 = unlimited. */
     maxMembers: number;
     /** Active members of the squad. */

@@ -88,7 +88,7 @@ export class SquadService {
      * @returns The squad with owner and active members.
      * @throws {NotFound} If the squad doesn't exist.
      */
-    async getSquad(squadId: string): Promise<Squad> {
+    async getSquad(squadId: string) {
         const squad = await AppDataSource.getRepository(Squad).findOne({
             where: { id: squadId },
             relations: ["owner", "members"],
@@ -97,7 +97,7 @@ export class SquadService {
 
         // Filter to only active members
         squad.members = squad.members.filter((m) => m.status === "active");
-        return squad;
+        return mapSquad(squad);
     }
 
     /**
@@ -107,7 +107,7 @@ export class SquadService {
      * @param subscriptionId - Subscription plan ID.
      * @returns The squad, or null if not found.
      */
-    async getSquadByOwnerUid(ownerUid: string, subscriptionId: string): Promise<Squad | null> {
+    async getSquadByOwnerUid(ownerUid: string, subscriptionId: string) {
         const subscriber = await AppDataSource.getRepository(Subscriber).findOneBy({
             uid: ownerUid,
             subscriptionId,
@@ -121,7 +121,7 @@ export class SquadService {
         if (!squad) return null;
 
         squad.members = squad.members.filter((m) => m.status === "active");
-        return squad;
+        return mapSquad(squad);
     }
 
     /**
@@ -620,4 +620,22 @@ export class SquadService {
         const account = await AppDataSource.getRepository(Account).findOne({ where: {} });
         return account?.inviteTtlDays ?? 7;
     }
+}
+
+// ─── Helpers ────────────────────────────────────────────────────────
+
+/**
+ * Map a Squad entity to a plain response object,
+ * promoting `owner.uid` to a flat `ownerUid` field.
+ */
+function mapSquad(squad: Squad) {
+    return {
+        id: squad.id,
+        ownerId: squad.ownerId,
+        ownerUid: squad.owner?.uid ?? null,
+        maxMembers: squad.maxMembers,
+        members: squad.members,
+        createdAt: squad.createdAt,
+        updatedAt: squad.updatedAt,
+    };
 }
