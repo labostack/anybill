@@ -1,7 +1,7 @@
 /** Invoices page — filterable, paginated list with search, provider filter, date range, amount display. */
 import { createSignal, createMemo, onMount, For, Show } from "solid-js";
 import { api } from "../api/client";
-import { Search, X, ChevronRight } from "lucide-solid";
+import { Search, X, ChevronRight, AlertTriangle } from "lucide-solid";
 import { Pagination } from "../components/Pagination";
 import { debounce } from "../utils/debounce";
 
@@ -80,6 +80,15 @@ export function Invoices() {
     };
 
     const closeDetail = () => { setSelected(null); setDetail(null); };
+
+    const deleteInvoice = async (id: string) => {
+        if (!confirm(`Permanently delete invoice ${id.slice(0, 8)}...? This cannot be undone.`)) return;
+        try {
+            await api.del(`/invoices/${id}`);
+            closeDetail();
+            load();
+        } catch (err: any) { alert(err.message); }
+    };
 
     return (
         <div class="page-enter">
@@ -297,6 +306,16 @@ export function Invoices() {
                                         </div>
                                     </div>
                                 </Show>
+                            </div>
+                            <div style="margin-top: 24px; padding-top: 20px; border-top: 1px solid rgba(255,255,255,0.06)">
+                                <button
+                                    class="btn btn-sm"
+                                    style="width: 100%; background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.25); color: #f87171; display: flex; align-items: center; justify-content: center; gap: 6px;"
+                                    onClick={() => deleteInvoice(detail().id)}
+                                >
+                                    <AlertTriangle size={13} />
+                                    Delete invoice permanently
+                                </button>
                             </div>
                         </Show>
                     </div>

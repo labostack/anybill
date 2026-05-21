@@ -7,7 +7,7 @@
  * and manual plan grant/revoke for admin overrides.
  */
 
-import { Controller, Get, Put, Post, PathParams, QueryParams, BodyParams, UseBefore } from "@tsed/common";
+import { Controller, Get, Put, Post, Delete, PathParams, QueryParams, BodyParams, UseBefore } from "@tsed/common";
 import { NotFound, BadRequest } from "@tsed/exceptions";
 import { Tags, Summary, Description, Returns } from "@tsed/schema";
 import { AdminGuard } from "../../core/AdminGuard";
@@ -261,5 +261,28 @@ export class SubscribersController {
             throw new AppError(400, ErrorCode.BAD_REQUEST, "Only active subscribers can be refunded");
         }
         return this.billing.refundSubscriber(id);
+    }
+
+    /**
+     * Permanently delete a subscriber and all their invoices from the database.
+     *
+     * This is a hard delete — it cannot be undone. Cleans up all related
+     * invoice records before removing the subscriber row.
+     */
+    @Delete("/:id")
+    @Summary("Delete subscriber")
+    @Description("Permanently deletes a subscriber and all their invoices. This action cannot be undone.")
+    @Returns(200)
+    @Returns(404)
+    async delete(@PathParams("id") id: string) {
+        const sub = await this.repo().findOneBy({ id });
+        if (!sub) throw new AppError(404, ErrorCode.SUBSCRIBER_NOT_FOUND, "Subscriber not found");
+
+        // Remove related invoices first to avoid FK constraint issues.
+        const invoiceRepo = AppDataSource.getRepository(Invoice);
+        await invoiceRepo.delete({ subscriberId: id });
+
+        await this.repo().delete({ id });
+        return { success: true };
     }
 }

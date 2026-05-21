@@ -7,7 +7,7 @@
  * Supports filtering by status, date range, subscriber UID, and provider.
  */
 
-import { Controller, Get, QueryParams, PathParams, UseBefore } from "@tsed/common";
+import { Controller, Get, Delete, QueryParams, PathParams, UseBefore } from "@tsed/common";
 import { Tags, Summary, Description, Returns } from "@tsed/schema";
 import { AdminGuard } from "../../core/AdminGuard";
 import { AppDataSource } from "../../core/datasource";
@@ -85,5 +85,20 @@ export class InvoicesController {
         }
 
         return invoice;
+    }
+
+    /** Permanently delete an invoice by ID. */
+    @Delete("/:id")
+    @Summary("Delete invoice")
+    @Description("Permanently deletes an invoice record. This action cannot be undone.")
+    @Returns(200)
+    @Returns(404)
+    async delete(@PathParams("id") id: string) {
+        const invoice = await this.repo().findOneBy({ id });
+        if (!invoice) {
+            throw new AppError(404, ErrorCode.INVOICE_NOT_FOUND, "Invoice not found");
+        }
+        await this.repo().delete({ id });
+        return { success: true };
     }
 }

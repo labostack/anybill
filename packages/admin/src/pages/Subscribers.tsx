@@ -1,7 +1,7 @@
 /** Subscribers page — full-featured list with search/filters, detail drawer, and manual plan management. */
 import { createSignal, createMemo, onMount, For, Show } from "solid-js";
 import { api } from "../api/client";
-import { Search, X, Users, ChevronRight, Gift, RefreshCw, Ban, Trash2, Calendar } from "lucide-solid";
+import { Search, X, Users, ChevronRight, Gift, RefreshCw, Ban, Trash2, Calendar, AlertTriangle } from "lucide-solid";
 import { Pagination } from "../components/Pagination";
 import { debounce } from "../utils/debounce";
 
@@ -125,6 +125,16 @@ export function Subscribers() {
         if (!confirm("Revoke access immediately? This will cancel the subscription and clear the billing period dates right now.")) return;
         try {
             await api.post(`/subscribers/${id}/revoke`);
+            closeDetail();
+            load();
+        } catch (err: any) { alert(err.message); }
+    };
+
+    const deleteSubscriber = async (id: string, uid: string) => {
+        if (!confirm(`Permanently delete subscriber "${uid}" and ALL their invoices? This cannot be undone.`)) return;
+        if (!confirm(`Are you sure? This will irreversibly remove all data for "${uid}".`)) return;
+        try {
+            await api.del(`/subscribers/${id}`);
             closeDetail();
             load();
         } catch (err: any) { alert(err.message); }
@@ -461,6 +471,16 @@ export function Subscribers() {
                                             </button>
                                         </Show>
                                     </div>
+                                </div>
+                                <div style="margin-top: 24px; padding-top: 20px; border-top: 1px solid rgba(255,255,255,0.06)">
+                                    <button
+                                        class="btn btn-sm"
+                                        style="width: 100%; background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.25); color: #f87171; display: flex; align-items: center; justify-content: center; gap: 6px;"
+                                        onClick={() => deleteSubscriber(detail().id, detail().uid)}
+                                    >
+                                        <AlertTriangle size={13} />
+                                        Delete subscriber permanently
+                                    </button>
                                 </div>
                             </div>
                         </Show>
