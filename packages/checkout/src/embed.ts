@@ -24,6 +24,7 @@
  * AnybillEmbed.open({
  *   baseUrl: "https://billing.example.com",
  *   token: "eyJ...signed-token",
+ *   locale: "ru",              // optional — forces UI language ("en" | "ru")
  *   onSuccess: (invoiceId) => console.log("Paid!", invoiceId),
  *   onClose: () => console.log("Closed"),
  * });
@@ -43,6 +44,8 @@
         /** Signed checkout token (from SDK or admin API). */
         token: string;
         theme?: "dark" | "auto";
+        /** Force a UI locale (e.g. "en" | "ru"). Falls back to browser language. */
+        locale?: string;
         onSuccess?: (invoiceId: string) => void;
         onClose?: () => void;
     }
@@ -141,7 +144,9 @@
 
     function buildCheckoutUrl(opts: EmbedOptions): string {
         const base = opts.baseUrl.replace(/\/$/, "");
-        return `${base}/pay/s/${opts.token}`;
+        const url = new URL(`${base}/pay/s/${opts.token}`);
+        if (opts.locale) url.searchParams.set("locale", opts.locale);
+        return url.toString();
     }
 
     function open(opts: EmbedOptions): void {

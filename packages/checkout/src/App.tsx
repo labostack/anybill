@@ -6,6 +6,11 @@ import { PortalPage } from "./pages/Portal";
 import { ChevronDown } from "lucide-solid";
 import { I18nProvider, useI18n, SUPPORTED_LOCALES, Locale } from "./locales/i18n";
 
+/** True when the checkout SPA is running inside an embed iframe. */
+export const isEmbedded: boolean = (() => {
+    try { return window.self !== window.top; } catch { return true; }
+})();
+
 function LanguageSwitcher() {
     const { locale, setLocale } = useI18n();
     return (
@@ -32,7 +37,9 @@ export default function App() {
     return (
         <I18nProvider>
             <>
-                <LanguageSwitcher />
+                <Show when={!isEmbedded}>
+                    <LanguageSwitcher />
+                </Show>
                 <Router>
                     <Route path="/portal/:token" component={PortalPage} />
                     <Route path="/pay/s/:token" component={SecureCheckout} />

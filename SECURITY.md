@@ -34,7 +34,7 @@ We will credit reporters in the release notes (unless you prefer to remain anony
 
 When self-hosting AnyBill:
 
-- **Always set a strong `JWT_SECRET`** — generate with `openssl rand -hex 32`
+- **Always set strong `JWT_SECRET` and `LINK_SECRET`** — generate with `openssl rand -hex 32`
 - **Use HTTPS** in production — place a reverse proxy (Caddy, nginx) with TLS in front
 - **Restrict access** to the admin dashboard — use firewall rules or VPN
 - **Keep Docker images updated** — pull `ghcr.io/dortanes/anybill:latest` regularly

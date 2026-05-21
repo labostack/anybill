@@ -3,7 +3,8 @@
  *
  * Subscriber management endpoints (admin dashboard).
  *
- * Provides listing, detail view, status update, cancellation, and refund.
+ * Provides listing, detail view, status update, cancellation, refund,
+ * and manual plan grant/revoke for admin overrides.
  */
 
 import { Controller, Get, Put, Post, PathParams, QueryParams, BodyParams, UseBefore } from "@tsed/common";
@@ -12,12 +13,15 @@ import { Tags, Summary, Description, Returns } from "@tsed/schema";
 import { AdminGuard } from "../../core/AdminGuard";
 import { AppDataSource } from "../../core/datasource";
 import { Subscriber } from "../../entities/Subscriber";
+import { Subscription } from "../../entities/Subscription";
 import { Squad } from "../../entities/Squad";
+import { Invoice } from "../../entities/Invoice";
 import { BillingService } from "../../services/BillingService";
 import { AppError } from "../../core/errors/AppError";
 import { ErrorCode } from "../../core/errors/ErrorCode";
-import { UpdateSubscriberBody } from "../../models/SubscriberModels";
+import { UpdateSubscriberBody, GrantPlanBody } from "../../models/SubscriberModels";
 import { SubscriberListQuery } from "../../models/QueryModels";
+import { Like } from "typeorm";
 
 @Controller("/subscribers")
 @UseBefore(AdminGuard)
@@ -30,24 +34,33 @@ export class SubscribersController {
         return AppDataSource.getRepository(Subscriber);
     }
 
-    /** List subscribers with optional status filter and pagination. */
+    /** List subscribers with optional status/uid/plan/date filter and pagination. */
     @Get("/")
     @Summary("List subscribers")
-    @Description("Returns a paginated list of subscribers with optional status filter.")
+    @Description("Returns a paginated list of subscribers with optional status, UID, plan, and date filters.")
     @Returns(200)
     async list(@QueryParams() query: SubscriberListQuery) {
-        const { status, page, limit } = query;
-        const where: any = {};
-        if (status) where.status = status;
+        const { status, uid, subscriptionId, createdFrom, createdTo, page, limit } = query;
 
-        const [items, total] = await this.repo().findAndCount({
-            where,
-            relations: ["subscription"],
-            order: { createdAt: "DESC" },
-            skip: (page - 1) * limit,
-            take: limit,
-        });
+        const qb = this.repo()
+            .createQueryBuilder("sub")
+            .leftJoinAndSelect("sub.subscription", "subscription")
+            .orderBy("sub.createdAt", "DESC")
+            .skip((page - 1) * limit)
+            .take(limit);
 
+        if (uid) qb.andWhere("sub.uid LIKE :uid", { uid: `%${uid}%` });
+        if (status) qb.andWhere("sub.status = :status", { status });
+        if (subscriptionId) qb.andWhere("sub.subscriptionId = :subscriptionId", { subscriptionId });
+        if (createdFrom) qb.andWhere("sub.createdAt >= :createdFrom", { createdFrom: new Date(createdFrom) });
+        if (createdTo) {
+            // include the whole end day
+            const end = new Date(createdTo);
+            end.setHours(23, 59, 59, 999);
+            qb.andWhere("sub.createdAt <= :createdTo", { createdTo: end });
+        }
+
+        const [items, total] = await qb.getManyAndCount();
         return { items, total, page, limit };
     }
 
@@ -60,6 +73,13 @@ export class SubscribersController {
     async get(@PathParams("id") id: string) {
         const sub = await this.repo().findOne({ where: { id }, relations: ["subscription", "invoices"] });
         if (!sub) throw new AppError(404, ErrorCode.SUBSCRIBER_NOT_FOUND, "Subscriber not found");
+
+        // Sort invoices newest first
+        if (sub.invoices) {
+            sub.invoices.sort((a: Invoice, b: Invoice) =>
+                new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+            );
+        }
 
         // Load squad owned by this subscriber (if any)
         const squad = await AppDataSource.getRepository(Squad).findOne({
@@ -76,19 +96,66 @@ export class SubscribersController {
         };
     }
 
-    /** Update subscriber fields (status, metadata). */
+    /** Update subscriber fields (status, metadata, plan, period). */
     @Put("/:id")
     @Summary("Update subscriber")
-    @Description("Updates subscriber status and/or metadata.")
+    @Description("Updates subscriber status, metadata, plan assignment, and/or billing period dates.")
     @Returns(200)
     @Returns(404)
     async update(@PathParams("id") id: string, @BodyParams() data: UpdateSubscriberBody) {
         const sub = await this.repo().findOneBy({ id });
         if (!sub) throw new AppError(404, ErrorCode.SUBSCRIBER_NOT_FOUND, "Subscriber not found");
 
-        // Apply only validated & whitelisted fields.
+        // Apply whitelisted fields.
         if (data.status !== undefined) sub.status = data.status;
         if (data.metadata !== undefined) sub.metadata = data.metadata;
+        if (data.currentPeriodStart !== undefined) sub.currentPeriodStart = new Date(data.currentPeriodStart);
+        if (data.currentPeriodEnd !== undefined) sub.currentPeriodEnd = new Date(data.currentPeriodEnd);
+
+        // Plan reassignment — validate the new plan exists.
+        if (data.subscriptionId !== undefined) {
+            const plan = await AppDataSource.getRepository(Subscription).findOneBy({ id: data.subscriptionId });
+            if (!plan) throw new AppError(404, ErrorCode.SUBSCRIPTION_NOT_FOUND, "Subscription plan not found");
+            sub.subscriptionId = data.subscriptionId;
+        }
+
+        return this.repo().save(sub);
+    }
+
+    /**
+     * Grant a subscriber access to a plan without payment.
+     *
+     * Creates the subscriber record (or updates existing) and sets status to `active`.
+     * Used for manual admin overrides: comp plans, corrections, etc.
+     */
+    @Post("/:id/grant")
+    @Summary("Grant plan access")
+    @Description("Grants a subscriber access to a plan without going through the payment flow. Admin override only.")
+    @Returns(200)
+    @Returns(404)
+    async grant(@PathParams("id") id: string, @BodyParams() data: GrantPlanBody) {
+        const sub = await this.repo().findOneBy({ id });
+        if (!sub) throw new AppError(404, ErrorCode.SUBSCRIBER_NOT_FOUND, "Subscriber not found");
+
+        // If a new subscriptionId is provided, validate it.
+        if (data.subscriptionId) {
+            const plan = await AppDataSource.getRepository(Subscription).findOneBy({ id: data.subscriptionId });
+            if (!plan) throw new AppError(404, ErrorCode.SUBSCRIPTION_NOT_FOUND, "Subscription plan not found");
+            sub.subscriptionId = data.subscriptionId;
+        }
+
+        sub.status = "active";
+        sub.currentPeriodStart = new Date();
+
+        // Resolve period end: explicit date > days > no end.
+        if (data.periodEnd) {
+            sub.currentPeriodEnd = new Date(data.periodEnd);
+        } else if (data.periodDays && data.periodDays > 0) {
+            const end = new Date();
+            end.setDate(end.getDate() + data.periodDays);
+            sub.currentPeriodEnd = end;
+        }
+        // else: keep existing or null — one-time / manual management
 
         return this.repo().save(sub);
     }

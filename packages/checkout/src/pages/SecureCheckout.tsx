@@ -1,10 +1,11 @@
 /** SecureCheckout page — token-based checkout. Resolves a secure link token
  *  via /api/checkout/resolve/:token, then renders the same two-column
- *  Stripe-style layout as the regular Checkout page. */
+ *  layout as the regular Checkout page. */
 import { createSignal, onMount, For, Show } from "solid-js";
 import { useParams } from "@solidjs/router";
 import { ArrowLeft, Lock, ShieldCheck, AlertTriangle, Ticket } from "lucide-solid";
 import { useI18n } from "../locales/i18n";
+import { isEmbedded } from "../App";
 
 const API = "/api/checkout";
 
@@ -26,7 +27,7 @@ export function SecureCheckout() {
     const [showCouponInput, setShowCouponInput] = createSignal(false);
 
     onMount(async () => {
-        // Capture referrer for "back" button (like Stripe)
+        // Capture referrer for "back" button
         if (document.referrer && new URL(document.referrer).origin !== window.location.origin) {
             setReferrerUrl(document.referrer);
         }
@@ -151,8 +152,8 @@ export function SecureCheckout() {
                     {/* ─── Left Column: Product Summary ─── */}
                     <div class="checkout-left">
                         <div class="checkout-left-inner">
-                            {/* Back to referrer */}
-                            <Show when={referrerUrl()}>
+                            {/* Back to referrer — hidden in embed mode */}
+                            <Show when={referrerUrl() && !isEmbedded}>
                                 <a class="checkout-back" href={referrerUrl()}>
                                     <ArrowLeft size={16} />
                                     <span>{t("common.back")}</span>

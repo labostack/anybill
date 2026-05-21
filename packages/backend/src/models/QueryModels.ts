@@ -35,6 +35,22 @@ export class SubscriberListQuery extends PaginationQuery {
     @Optional()
     @Enum("pending", "trialing", "active", "cancelled", "expired", "past_due")
     status?: string;
+
+    /** Filter by subscriber UID (partial match). */
+    @Optional()
+    uid?: string;
+
+    /** Filter by subscription plan ID. */
+    @Optional()
+    subscriptionId?: string;
+
+    /** Filter by join date (ISO date string, inclusive). */
+    @Optional()
+    createdFrom?: string;
+
+    /** Filter by join date (ISO date string, inclusive). */
+    @Optional()
+    createdTo?: string;
 }
 
 // ─── Admin: Invoices ────────────────────────────────────────────────
@@ -50,6 +66,14 @@ export class InvoiceListQuery extends PaginationQuery {
 
     @Optional()
     to?: string;
+
+    /** Filter by subscriber UID (partial match). */
+    @Optional()
+    subscriberUid?: string;
+
+    /** Filter by payment provider name. */
+    @Optional()
+    provider?: string;
 }
 
 // ─── Admin: Dashboard ───────────────────────────────────────────────

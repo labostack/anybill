@@ -1,7 +1,7 @@
-/** Coupons page — promo code management with CRUD modal, status badges, plan restriction. */
-import { createSignal, onMount, For, Show } from "solid-js";
+/** Coupons page — promo code management with CRUD modal, status badges, plan restriction, and filters. */
+import { createSignal, createMemo, onMount, For, Show } from "solid-js";
 import { api } from "../api/client";
-import { Plus, Ticket, Pencil, Trash2 } from "lucide-solid";
+import { Plus, Ticket, Pencil, Trash2, Search, X } from "lucide-solid";
 
 /** Convert minor units (999) to display string ("9.99") */
 function minorToDisplay(minor: string | number): string {
@@ -25,6 +25,12 @@ export function Coupons() {
     const [formError, setFormError] = createSignal("");
     const [saving, setSaving] = createSignal(false);
     const [subscriptions, setSubscriptions] = createSignal<any[]>([]);
+
+    // Filters
+    const [searchCode, setSearchCode] = createSignal("");
+    const [filterStatus, setFilterStatus] = createSignal("");
+    const [filterType, setFilterType] = createSignal("");
+    const [filterPlan, setFilterPlan] = createSignal("");
 
     // Form signals
     const [formCode, setFormCode] = createSignal("");
@@ -73,6 +79,30 @@ export function Coupons() {
             case "inactive": return "badge-cancelled";
             default: return "";
         }
+    };
+
+    // Filtered coupons
+    const filtered = createMemo(() => {
+        const q = searchCode().toLowerCase().trim();
+        return coupons().filter(c => {
+            if (q && !c.code.toLowerCase().includes(q)) return false;
+            if (filterType() && c.type !== filterType()) return false;
+            if (filterStatus()) {
+                const s = getStatus(c);
+                if (s !== filterStatus()) return false;
+            }
+            if (filterPlan()) {
+                const ids: string[] = c.subscriptionIds || [];
+                if (ids.length > 0 && !ids.includes(filterPlan())) return false;
+            }
+            return true;
+        });
+    });
+
+    const hasFilters = createMemo(() => searchCode() || filterStatus() || filterType() || filterPlan());
+
+    const clearFilters = () => {
+        setSearchCode(""); setFilterStatus(""); setFilterType(""); setFilterPlan("");
     };
 
     /** Format amount input — allow digits and one dot, max 2 decimals */
@@ -206,17 +236,58 @@ export function Coupons() {
                 </button>
             </div>
 
-            <Show when={coupons().length === 0}>
+            {/* Toolbar */}
+            <div class="plans-toolbar" style="margin-bottom: 20px">
+                <div class="search-wrap">
+                    <Search size={14} class="search-icon" />
+                    <input
+                        class="search-input"
+                        placeholder="Search by code..."
+                        value={searchCode()}
+                        onInput={(e) => setSearchCode(e.target.value)}
+                    />
+                    <Show when={searchCode()}>
+                        <button class="search-clear" onClick={() => setSearchCode("")}><X size={12} /></button>
+                    </Show>
+                </div>
+                <div class="filters">
+                    <select value={filterStatus()} onChange={(e) => setFilterStatus(e.target.value)}>
+                        <option value="">All statuses</option>
+                        <option value="active">Active</option>
+                        <option value="inactive">Inactive</option>
+                        <option value="expired">Expired</option>
+                        <option value="exhausted">Exhausted</option>
+                    </select>
+                    <select value={filterType()} onChange={(e) => setFilterType(e.target.value)}>
+                        <option value="">All types</option>
+                        <option value="percent">Percentage</option>
+                        <option value="fixed">Fixed amount</option>
+                    </select>
+                    <select value={filterPlan()} onChange={(e) => setFilterPlan(e.target.value)}>
+                        <option value="">All plans</option>
+                        <For each={subscriptions()}>{(s: any) =>
+                            <option value={s.id}>{s.name}</option>
+                        }</For>
+                    </select>
+                    <Show when={hasFilters()}>
+                        <button class="btn btn-ghost btn-sm" onClick={clearFilters} style="color: var(--text-muted)">
+                            <X size={13} /> Clear
+                        </button>
+                    </Show>
+                </div>
+            </div>
+
+            <Show when={filtered().length === 0}>
                 <div class="card">
                     <div class="empty-state">
                         <Ticket size={40} />
-                        <h3>No coupons yet</h3>
-                        <p>Create your first coupon to offer discounts</p>
+                        <h3>{hasFilters() ? "No coupons match filters" : "No coupons yet"}</h3>
+                        <p>{hasFilters() ? "Try adjusting your filters" : "Create your first coupon to offer discounts"}</p>
                     </div>
                 </div>
             </Show>
 
-            <Show when={coupons().length > 0}>
+            <Show when={filtered().length > 0}>
                 <div class="table-wrap">
                     <table>
                         <thead>
@@ -232,7 +303,7 @@ export function Coupons() {
                             </tr>
                         </thead>
                         <tbody>
-                            <For each={coupons()}>
+                            <For each={filtered()}>
                                 {(c: any) => {
                                     const status = () => getStatus(c);
                                     return (
