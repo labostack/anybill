@@ -127,6 +127,13 @@ export interface PaymentResult {
     action: PaymentAction;
     /** Optional metadata from the provider response. */
     metadata?: Record<string, any>;
+    /**
+     * Optional raw body to return verbatim to the webhook caller.
+     * Set via `Payment.ignore(body)`. Can be a string, Buffer, or any
+     * JSON-serialisable value. When present, the webhook controller
+     * responds with this value directly instead of the default JSON envelope.
+     */
+    ignoreBody?: string | Buffer | Record<string, any> | unknown;
 }
 
 /**
@@ -169,10 +176,22 @@ export class Payment {
      * Use this when the webhook is valid but represents an event
      * AnyBill doesn't need to act on (e.g. `charge.updated`).
      *
+     * When `body` is provided it is returned verbatim to the calling
+     * provider in the HTTP response — useful for challenge/verify
+     * handshakes that require a specific plaintext or JSON reply.
+     *
+     * @param body - Optional response body to echo back (string, Buffer, or object).
      * @returns A pre-built `PaymentResult` with `action: "ignored"`.
+     *
+     * @example
+     * // Plain-text echo (e.g. status check)
+     * return Payment.ignore("YES");
+     *
+     * // JSON echo (e.g. challenge handshake)
+     * return Payment.ignore({ challenge: params.hub_challenge });
      */
-    static ignore(): PaymentResult {
-        return { id: "", action: "ignored" };
+    static ignore(body?: string | Buffer | Record<string, any> | unknown): PaymentResult {
+        return { id: "", action: "ignored", ...(body !== undefined && { ignoreBody: body }) };
     }
 
     /**

@@ -41,6 +41,16 @@ export class WebhookController {
             // If rawBody is missing (empty body), fall back to req.body.
             const rawBody: Buffer | string = (req as any).rawBody ?? req.body;
             const result = await this.billing.handleWebhook(provider, rawBody, req.headers);
+
+            // If the provider returned an explicit ignore body, echo it verbatim.
+            if (result?.ignoreBody !== undefined) {
+                const body = result.ignoreBody;
+                if (typeof body === "string" || Buffer.isBuffer(body)) {
+                    return res.send(body);
+                }
+                return res.json(body);
+            }
+
             return res.json({ ok: true, action: result?.action ?? "ignored" });
         } catch (err: any) {
             ctx.logger.error({ provider, error: err.message });
