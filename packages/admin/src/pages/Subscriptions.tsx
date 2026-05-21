@@ -55,7 +55,7 @@ export function Subscriptions() {
     // Two levels of collapse: plan group + interval sub-group
     const [collapsed, setCollapsed] = createSignal<Record<string, boolean>>({});
     const [collapsedInterval, setCollapsedInterval] = createSignal<Record<string, boolean>>({});
-    const [form, setForm] = createSignal({ name: "", description: "", displayAmount: "", currency: "USD", interval: "month", intervalCount: "1", renewalMode: "manual", squadEnabled: false, squadMaxMembers: "0", trialDays: "0" });
+    const [form, setForm] = createSignal({ name: "", description: "", displayAmount: "", currency: "USD", interval: "month", intervalCount: "1", squadEnabled: false, squadMaxMembers: "0", trialDays: "0" });
     const [metaRows, setMetaRows] = createStore<{ key: string; value: string }[]>([]);
     const [formError, setFormError] = createSignal("");
     const [saving, setSaving] = createSignal(false);
@@ -204,7 +204,7 @@ export function Subscriptions() {
 
     const openCreate = (prefillName?: string) => {
         setEditing(null);
-        setForm({ name: prefillName || "", description: "", displayAmount: "", currency: "USD", interval: "month", intervalCount: "1", renewalMode: "manual", squadEnabled: false, squadMaxMembers: "0", trialDays: "0" });
+        setForm({ name: prefillName || "", description: "", displayAmount: "", currency: "USD", interval: "month", intervalCount: "1", squadEnabled: false, squadMaxMembers: "0", trialDays: "0" });
         setMetaRows([]);
         setFormError("");
         setPlanTab("basics");
@@ -220,7 +220,6 @@ export function Subscriptions() {
             currency: sub.currency,
             interval: sub.interval,
             intervalCount: String(sub.intervalCount),
-            renewalMode: sub.renewalMode || "manual",
             squadEnabled: sub.squadEnabled || false,
             squadMaxMembers: String(sub.squadMaxMembers || 0),
             trialDays: String(sub.trialDays || 0),
@@ -252,7 +251,7 @@ export function Subscriptions() {
                 currency: form().currency,
                 interval: form().interval,
                 intervalCount: form().interval === "one_time" ? 1 : Number(form().intervalCount),
-                renewalMode: form().interval === "one_time" ? "manual" : form().renewalMode,
+
                 squadEnabled: form().squadEnabled,
                 squadMaxMembers: Number(form().squadMaxMembers),
                 trialDays: form().interval === "one_time" ? 0 : Number(form().trialDays || 0),
@@ -501,9 +500,7 @@ export function Subscriptions() {
                                                                                 <Show when={sub.squadEnabled}>
                                                                                     <span class="badge badge-info">Squad{sub.squadMaxMembers ? ` · ${sub.squadMaxMembers}` : ""}</span>
                                                                                 </Show>
-                                                                                <Show when={sub.renewalMode === "auto"}>
-                                                                                    <span class="badge badge-info">Auto-renew</span>
-                                                                                </Show>
+
                                                                                 <span class={`badge ${sub.isActive ? "badge-active" : "badge-expired"}`}>
                                                                                     {sub.isActive ? "Active" : "Inactive"}
                                                                                 </span>
@@ -687,7 +684,7 @@ export function Subscriptions() {
                                             <label>Billing Period</label>
                                             <select value={form().interval} onChange={(e) => {
                                                 const interval = e.target.value;
-                                                setForm({ ...form(), interval, renewalMode: interval === "one_time" ? "manual" : form().renewalMode });
+                                                setForm({ ...form(), interval });
                                             }}>
                                                 <option value="day">Daily</option>
                                                 <option value="week">Weekly</option>
@@ -752,41 +749,7 @@ export function Subscriptions() {
                                         </Show>
                                     </div>
 
-                                    <div class="form-group">
-                                        <label>Renewal Mode</label>
-                                        <div class="renewal-radio-group">
-                                            <label class="renewal-radio">
-                                                <input
-                                                    type="radio"
-                                                    name="renewalMode"
-                                                    value="manual"
-                                                    checked={form().renewalMode === "manual"}
-                                                    onChange={() => setForm({ ...form(), renewalMode: "manual" })}
-                                                />
-                                                <div class="renewal-radio-content">
-                                                    <span class="renewal-radio-title">Manual</span>
-                                                    <span class="renewal-radio-desc">User re-purchases when period ends</span>
-                                                </div>
-                                            </label>
-                                            <label class={`renewal-radio ${form().interval === "one_time" ? "renewal-radio-disabled" : ""}`}>
-                                                <input
-                                                    type="radio"
-                                                    name="renewalMode"
-                                                    value="auto"
-                                                    checked={form().renewalMode === "auto"}
-                                                    disabled={form().interval === "one_time"}
-                                                    onChange={() => setForm({ ...form(), renewalMode: "auto" })}
-                                                />
-                                                <div class="renewal-radio-content">
-                                                    <span class="renewal-radio-title">Auto-renew</span>
-                                                    <span class="renewal-radio-desc">Auto-renew if provider supports recurring, otherwise manual</span>
-                                                </div>
-                                            </label>
-                                        </div>
-                                        <Show when={form().interval === "one_time"}>
-                                            <div class="form-hint" style="color: var(--warning)">One-time plans are always manual</div>
-                                        </Show>
-                                    </div>
+
                                 </div>
                             </Show>
 

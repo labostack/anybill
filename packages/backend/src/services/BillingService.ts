@@ -429,9 +429,9 @@ export class BillingService implements OnInit {
                 subscriber.currentPeriodEnd = computePeriodEnd(subscription.interval, subscription.intervalCount);
             }
 
-            // Determine actual renewal mode based on plan intent + provider capabilities.
+            // Determine actual renewal mode based on provider capabilities.
             subscriber.provider = providerName;
-            if (subscription && subscription.renewalMode === "auto" && subscription.interval !== "one_time") {
+            if (subscription && subscription.interval !== "one_time") {
                 const providerInfo = this.engine.getProviders().find(p => p.id === providerName);
                 const supportsRecurring = providerInfo?.capabilities.includes("recurring") ?? false;
                 subscriber.renewalMode = supportsRecurring ? "provider_managed" : "manual";

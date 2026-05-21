@@ -69,7 +69,9 @@ export class Subscriber {
      * - `"manual"` — subscriber must re-purchase when the period expires.
      * - `"provider_managed"` — the provider handles recurring billing automatically.
      *
-     * Derived from the plan's `renewalMode` intent + the provider's capabilities.
+     * Determined by the payment provider's capabilities: if the provider
+     * supports recurring billing and the plan is not one-time, the mode
+     * is set to `"provider_managed"`. Otherwise, it defaults to `"manual"`.
      */
     @Column({ type: "varchar", default: "manual" })
     renewalMode!: "manual" | "provider_managed";

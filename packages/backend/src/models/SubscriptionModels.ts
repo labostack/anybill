@@ -8,10 +8,10 @@
  */
 
 import { Required, Optional, MinLength, MaxLength, Integer, Min, Pattern, Enum, Default, Property, CollectionOf } from "@tsed/schema";
-import type { SubscriptionInterval, RenewalMode } from "../entities/Subscription";
+import type { SubscriptionInterval } from "../entities/Subscription";
 
 const INTERVALS = ["day", "week", "month", "year", "one_time"] as const;
-const RENEWAL_MODES = ["manual", "auto"] as const;
+
 
 /** Body for `POST /api/admin/subscriptions` — create a subscription plan. */
 export class CreateSubscriptionBody {
@@ -42,9 +42,6 @@ export class CreateSubscriptionBody {
     @Default(1)
     intervalCount!: number;
 
-    @Enum(...RENEWAL_MODES)
-    @Default("manual")
-    renewalMode!: RenewalMode;
 
     @Default(true)
     isActive!: boolean;
@@ -96,9 +93,6 @@ export class UpdateSubscriptionBody {
     @Min(1)
     intervalCount?: number;
 
-    @Optional()
-    @Enum(...RENEWAL_MODES)
-    renewalMode?: RenewalMode;
 
     @Optional()
     isActive?: boolean;

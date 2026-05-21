@@ -74,7 +74,6 @@ export class SubscriptionsController {
     async create(@BodyParams() data: CreateSubscriptionBody) {
 
         if (data.interval === "one_time") {
-            data.renewalMode = "manual";
             data.trialDays = 0;
         }
 
@@ -115,7 +114,6 @@ export class SubscriptionsController {
 
         const interval = data.interval ?? sub.interval;
         if (interval === "one_time") {
-            data.renewalMode = "manual";
             data.trialDays = 0;
         }
 
@@ -125,7 +123,6 @@ export class SubscriptionsController {
         if (data.currency !== undefined) sub.currency = data.currency;
         if (data.interval !== undefined) sub.interval = data.interval;
         if (data.intervalCount !== undefined) sub.intervalCount = data.intervalCount;
-        if (data.renewalMode !== undefined) sub.renewalMode = data.renewalMode;
         if (data.isActive !== undefined) sub.isActive = data.isActive;
         if (data.metadata !== undefined) sub.metadata = data.metadata;
         if (data.squadEnabled !== undefined) sub.squadEnabled = data.squadEnabled;

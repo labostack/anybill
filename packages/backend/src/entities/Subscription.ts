@@ -18,19 +18,6 @@ import { Invoice } from "./Invoice";
 /** Supported billing intervals. */
 export type SubscriptionInterval = "day" | "week" | "month" | "year" | "one_time";
 
-/**
- * Admin intent for how subscription renewal should be handled.
- *
- * - `"manual"` — User must always re-purchase when the period expires,
- *   even if the provider supports recurring billing.
- * - `"auto"` — Auto-renew if the provider supports recurring billing.
- *   If the provider only supports one-time payments, falls back to manual.
- *
- * The actual renewal mode for each subscriber is determined at payment
- * time and stored on the Subscriber entity.
- */
-export type RenewalMode = "manual" | "auto";
-
 @Entity()
 export class Subscription {
     @PrimaryGeneratedColumn("uuid")
@@ -59,10 +46,6 @@ export class Subscription {
     /** Number of intervals per billing cycle (e.g. `3` months). Defaults to `1`. */
     @Column({ type: "integer", default: 1 })
     intervalCount!: number;
-
-    /** Renewal strategy for this plan. */
-    @Column({ type: "varchar", default: "manual" })
-    renewalMode!: RenewalMode;
 
     /** Whether this plan is currently available for purchase. */
     @Column({ type: "boolean", default: true })

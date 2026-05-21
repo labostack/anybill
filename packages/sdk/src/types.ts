@@ -23,12 +23,6 @@ export interface Subscription {
     squadMaxMembers: number;
     /** Number of free trial days. 0 = no trial. */
     trialDays: number;
-    /**
-     * Admin intent for renewal handling.
-     * - `"manual"` — always manual, even if provider supports recurring.
-     * - `"auto"` — auto-renew if provider supports it, otherwise manual.
-     */
-    renewalMode: "manual" | "auto";
 }
 
 /** Subscriber (a user with an active or past subscription). */

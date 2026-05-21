@@ -35,7 +35,6 @@ interface SubscriptionInfo {
     currency: string;
     interval: string;
     intervalCount: number;
-    renewalMode: string;
 }
 
 interface SubscriberInfo {

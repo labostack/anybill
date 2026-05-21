@@ -338,7 +338,7 @@ export function Subscribers() {
                                             <span class="drawer-info-value">
                                                 {detail().renewalMode === "provider_managed"
                                                     ? `Auto-renew (${detail().provider || "provider"})`
-                                                    : detail().renewalMode || detail().subscription?.renewalMode || "—"}
+                                                    : detail().renewalMode || "—"}
                                             </span>
                                         </div>
                                     </div>
