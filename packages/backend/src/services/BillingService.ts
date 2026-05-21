@@ -99,6 +99,26 @@ export class BillingService implements OnInit {
         // Find or create subscriber.
         let subscriber = await subscriberRepo.findOneBy({ uid, subscriptionId });
         if (!subscriber) {
+            // Auto-detect plan change: if the uid already has an active/trialing subscriber
+            // on a different plan and no prevSubscriberId was explicitly provided, treat the
+            // existing subscription as the previous one so we don't create a duplicate.
+            if (!prevSubscriberId) {
+                const activeOnOtherPlan = await subscriberRepo
+                    .createQueryBuilder("s")
+                    .where("s.uid = :uid", { uid })
+                    .andWhere("s.subscriptionId != :subscriptionId", { subscriptionId })
+                    .andWhere("s.status IN (:...statuses)", { statuses: ["active", "trialing"] })
+                    .orderBy("s.currentPeriodEnd", "DESC")
+                    .getOne();
+
+                if (activeOnOtherPlan) {
+                    prevSubscriberId = activeOnOtherPlan.id;
+                    this.logger.info(
+                        `Auto plan-change detected: uid=${uid} switching from subscriber ${activeOnOtherPlan.id} (plan ${activeOnOtherPlan.subscriptionId}) to plan ${subscriptionId}`,
+                    );
+                }
+            }
+
             subscriber = subscriberRepo.create({
                 uid,
                 subscriptionId,
