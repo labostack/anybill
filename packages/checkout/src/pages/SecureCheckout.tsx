@@ -124,15 +124,18 @@ export function SecureCheckout() {
             const { paymentUrl } = await res.json();
 
             // Redirect to the provider's payment gateway.
-            // In embed mode, ask the parent to navigate via postMessage.
-            // try-catch handles mixed-content (HTTPS iframe in HTTP parent)
-            // where browsers block window.parent access.
+            // Must break out of iframe — providers block iframe embedding (CSRF).
+            // 1. postMessage: parent navigates itself (works when origins are both HTTPS)
+            // 2. window.top: direct top-level nav (works in Chrome, new tab in Safari)
+            // 3. window.location: last resort (in-frame, may hit provider CSRF)
             try {
                 if (window.parent !== window) {
                     window.parent.postMessage({ type: "anybill:checkout:redirect", url: paymentUrl }, "*");
                     return;
                 }
-            } catch { /* mixed-content or sandbox — fall through */ }
+            } catch {
+                try { window.top!.location.href = paymentUrl; return; } catch {}
+            }
             window.location.href = paymentUrl;
         } catch (err: any) {
             setError(err.message);
