@@ -230,6 +230,10 @@
             setTimeout(close, 1500);
         }
 
+        if (data.type === "anybill:checkout:redirect" && typeof data.url === "string") {
+            window.location.href = data.url;
+        }
+
         if (data.type === "anybill:checkout:close") {
             close();
         }

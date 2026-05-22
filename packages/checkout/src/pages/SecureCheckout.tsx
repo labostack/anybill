@@ -124,10 +124,13 @@ export function SecureCheckout() {
             const { paymentUrl } = await res.json();
 
             // Redirect to the provider's payment gateway.
-            // Use top-level navigation so the provider page is not trapped
-            // inside an iframe (many providers block this via CSRF / X-Frame-Options).
-            // After payment the provider redirects back to /pay/confirm/:invoiceId.
-            (window.top || window).location.href = paymentUrl;
+            // In embed mode, ask the parent to navigate (Safari blocks
+            // cross-origin iframe from setting window.top.location directly).
+            if (window.parent !== window) {
+                window.parent.postMessage({ type: "anybill:checkout:redirect", url: paymentUrl }, "*");
+            } else {
+                window.location.href = paymentUrl;
+            }
         } catch (err: any) {
             setError(err.message);
             setLoading(false);
