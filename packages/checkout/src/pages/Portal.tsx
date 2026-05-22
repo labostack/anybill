@@ -70,7 +70,7 @@ interface PortalData {
 
 function statusBadgeClass(status: string) {
     switch (status) {
-        case "active": return "portal-badge portal-badge-active";
+        case "active": case "trialing": return "portal-badge portal-badge-active";
         case "cancelled": return "portal-badge portal-badge-cancelled";
         case "expired": case "past_due": return "portal-badge portal-badge-warning";
         case "paid": return "portal-badge portal-badge-active";
@@ -272,6 +272,8 @@ export function PortalPage() {
                                                         <Clock size={13} />
                                                         {sub.status === "active"
                                                             ? `${formatDate(sub.currentPeriodStart)} – ${formatDate(sub.currentPeriodEnd)}`
+                                                            : sub.status === "trialing"
+                                                            ? `${t("portal.trialUntil")} ${formatDate(sub.currentPeriodEnd)}`
                                                             : sub.status === "cancelled"
                                                             ? `${t("portal.until")} ${formatDate(sub.currentPeriodEnd)}`
                                                             : `${t("portal.expiredOn")} ${formatDate(sub.currentPeriodEnd)}`}
