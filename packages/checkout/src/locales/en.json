@@ -24,7 +24,7 @@
     "invalidPromoCode": "Invalid coupon",
     "promoApplied": "Promo",
     "off": "off",
-    "secureInfo": "Your payment is processed securely. We never store your card details.",
+    "secureInfo": "Your payment is processed securely. We never store your card details. The merchant may charge an additional fee.",
     "oneTimePayment": "one-time payment",
     "per": "per",
     "discountApplied": "{{amount}} off"

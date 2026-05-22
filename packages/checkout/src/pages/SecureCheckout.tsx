@@ -5,7 +5,6 @@ import { createSignal, onMount, For, Show } from "solid-js";
 import { useParams } from "@solidjs/router";
 import { ArrowLeft, Lock, ShieldCheck, AlertTriangle, Ticket } from "lucide-solid";
 import { useI18n } from "../locales/i18n";
-import { isEmbedded } from "../App";
 
 const API = "/api/checkout";
 
@@ -123,21 +122,15 @@ export function SecureCheckout() {
             }
             const { paymentUrl, invoiceId } = await res.json();
 
-            // Store invoiceId for confirm page
-            sessionStorage.setItem("anybill_invoice", invoiceId);
-
-            if (isEmbedded) {
-                // When running inside an embed iframe: open the provider gateway in
-                // a new browser tab so it doesn't replace the iframe content.
-                // The iframe itself navigates to the confirm/polling page which will
-                // send a postMessage back to the parent when payment is confirmed.
-                window.open(paymentUrl, "_blank", "noopener,noreferrer");
-                window.location.href = `/pay/confirm/${invoiceId}`;
-            } else {
-                // Standalone mode: redirect directly to the provider gateway.
-                // The provider will redirect back to successRedirectUrl after payment.
-                window.location.href = paymentUrl;
+            // Tell embed overlay to hide the close button during provider redirect.
+            if (window.parent !== window) {
+                window.parent.postMessage({ type: "anybill:checkout:paying" }, "*");
             }
+
+            // Redirect to the provider's payment gateway.
+            // After payment the provider redirects back to /pay/confirm/:invoiceId.
+            // In embed mode the confirm page sends postMessage to close the overlay.
+            window.location.href = paymentUrl;
         } catch (err: any) {
             setError(err.message);
             setLoading(false);
