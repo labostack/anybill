@@ -124,13 +124,16 @@ export function SecureCheckout() {
             const { paymentUrl } = await res.json();
 
             // Redirect to the provider's payment gateway.
-            // In embed mode, ask the parent to navigate (Safari blocks
-            // cross-origin iframe from setting window.top.location directly).
-            if (window.parent !== window) {
-                window.parent.postMessage({ type: "anybill:checkout:redirect", url: paymentUrl }, "*");
-            } else {
-                window.location.href = paymentUrl;
-            }
+            // In embed mode, ask the parent to navigate via postMessage.
+            // try-catch handles mixed-content (HTTPS iframe in HTTP parent)
+            // where browsers block window.parent access.
+            try {
+                if (window.parent !== window) {
+                    window.parent.postMessage({ type: "anybill:checkout:redirect", url: paymentUrl }, "*");
+                    return;
+                }
+            } catch { /* mixed-content or sandbox — fall through */ }
+            window.location.href = paymentUrl;
         } catch (err: any) {
             setError(err.message);
             setLoading(false);
