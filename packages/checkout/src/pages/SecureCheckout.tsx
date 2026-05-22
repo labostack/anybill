@@ -5,6 +5,7 @@ import { createSignal, onMount, For, Show } from "solid-js";
 import { useParams } from "@solidjs/router";
 import { ArrowLeft, Lock, ShieldCheck, AlertTriangle, Ticket } from "lucide-solid";
 import { useI18n } from "../locales/i18n";
+import { isEmbedded } from "../App";
 
 const API = "/api/checkout";
 
