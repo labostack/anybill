@@ -130,11 +130,25 @@ export class SubscribersController {
 
         const saved = await this.repo().save(sub);
 
-        // Sync squad.maxMembers when the plan changes via direct update.
-        if (planChanged && newPlan) {
+        // Sync squad when the plan changes via direct update:
+        // - Create a new squad if the new plan is squad-enabled and no squad exists.
+        // - Update maxMembers if a squad already exists.
+        if (planChanged && newPlan && newPlan.squadEnabled) {
             const squadRepo = AppDataSource.getRepository(Squad);
             const existingSquad = await squadRepo.findOneBy({ ownerId: saved.id });
-            if (existingSquad && newPlan.squadEnabled) {
+            if (!existingSquad) {
+                const squad = squadRepo.create({
+                    ownerId: saved.id,
+                    maxMembers: newPlan.squadMaxMembers || 0,
+                });
+                await squadRepo.save(squad);
+                await this.outgoingWebhooks.dispatch("squad.created", {
+                    squadId: squad.id,
+                    ownerUid: saved.uid,
+                    subscriberId: saved.id,
+                    subscriptionId: newPlan.id,
+                });
+            } else {
                 existingSquad.maxMembers = newPlan.squadMaxMembers || 0;
                 await squadRepo.save(existingSquad);
             }
