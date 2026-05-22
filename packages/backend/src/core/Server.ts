@@ -72,7 +72,7 @@ import "../services/InvoiceExpirationWorker";
 
 @Configuration({
     port: Number(process.env.PORT) || 3000,
-    acceptMimes: ["application/json"],
+    acceptMimes: ["application/json", "text/event-stream"],
     mount: {
         "/api/admin": [
             AuthController,
