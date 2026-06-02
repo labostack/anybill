@@ -1,6 +1,6 @@
 # @anybill/sdk
 
-TypeScript SDK for the [AnyBill](https://github.com/dortanes/anybill) billing platform.
+TypeScript SDK for the [AnyBill](https://github.com/labostack/anybill) billing platform.
 
 Two use cases:
 
@@ -28,7 +28,9 @@ const plans = await client.getSubscriptions();
 
 // Check if a user has an active subscription (including trial status)
 const subscribers = await client.getSubscriberByUid("user_123");
-const isActive = subscribers.some((s) => s.status === "active" || s.status === "trialing");
+const isActive = subscribers.some(
+  (s) => s.status === "active" || s.status === "trialing",
+);
 
 // Start a free trial for a user
 const trial = await client.startTrial("user_123");
@@ -63,7 +65,10 @@ await client.squads.removeMember("squad-id", "friend-uid");
 ```typescript
 // --- Real-time Event Streaming (SSE) ---
 
-const stream = client.events.subscribe(["payment.confirmed", "subscription.renewed"]);
+const stream = client.events.subscribe([
+  "payment.confirmed",
+  "subscription.renewed",
+]);
 
 stream.on("payment.confirmed", (data) => {
   // data is fully typed: invoiceId, amount, currency, provider, paidAt, ...
@@ -87,30 +92,30 @@ stream.close();
 
 ### Methods
 
-| Method                     | Description                          |
-| -------------------------- | ------------------------------------ |
-| `getSubscriptions()`                  | List all active subscription plans        |
-| `getSubscriberByUid(uid)`             | Find subscribers by external user ID      |
-| `getSubscriber(id)`                   | Get a subscriber by AnyBill ID            |
-| `getInvoice(id)`                      | Get an invoice by ID                      |
-| `createCheckoutLink(planId, uid, ttl?)` | Create a secure, time-limited checkout URL |
-| `createPortalLink(uid, ttl?)`           | Create a time-limited subscriber portal URL        |
-| `checkAccess(uid, subscriptionId?)`    | Check if user has access (direct or squad) |
-| `startTrial(uid, subscriptionId?)`     | Start a free trial for a user (auto-resolves plan if omitted) |
-| `squads.create(subscriberId)`          | Create a squad for a subscriber |
-| `squads.get(squadId)`                  | Get squad by ID |
-| `squads.getByOwnerUid(uid)`            | Find squad by owner's uid |
-| `squads.dissolve(squadId)`             | Dissolve a squad |
-| `squads.addMember(squadId, uid)`       | Add member to squad |
-| `squads.removeMember(squadId, uid)`    | Remove member from squad |
-| `squads.getMembers(squadId)`           | List active squad members |
-| `squads.invites.create(squadId, uid)`  | Create an invite for a user |
-| `squads.invites.list(squadId)`         | List squad invites |
-| `squads.invites.accept(squadId, inviteId, uid)` | Accept an invite |
-| `squads.invites.decline(squadId, inviteId, uid)` | Decline an invite |
-| `squads.invites.cancel(squadId, inviteId)` | Cancel an invite (owner) |
-| `squads.invites.incoming(uid)`         | Get incoming invites for a user |
-| `events.subscribe(events?)`            | Open SSE stream for real-time events |
+| Method                                           | Description                                                   |
+| ------------------------------------------------ | ------------------------------------------------------------- |
+| `getSubscriptions()`                             | List all active subscription plans                            |
+| `getSubscriberByUid(uid)`                        | Find subscribers by external user ID                          |
+| `getSubscriber(id)`                              | Get a subscriber by AnyBill ID                                |
+| `getInvoice(id)`                                 | Get an invoice by ID                                          |
+| `createCheckoutLink(planId, uid, ttl?)`          | Create a secure, time-limited checkout URL                    |
+| `createPortalLink(uid, ttl?)`                    | Create a time-limited subscriber portal URL                   |
+| `checkAccess(uid, subscriptionId?)`              | Check if user has access (direct or squad)                    |
+| `startTrial(uid, subscriptionId?)`               | Start a free trial for a user (auto-resolves plan if omitted) |
+| `squads.create(subscriberId)`                    | Create a squad for a subscriber                               |
+| `squads.get(squadId)`                            | Get squad by ID                                               |
+| `squads.getByOwnerUid(uid)`                      | Find squad by owner's uid                                     |
+| `squads.dissolve(squadId)`                       | Dissolve a squad                                              |
+| `squads.addMember(squadId, uid)`                 | Add member to squad                                           |
+| `squads.removeMember(squadId, uid)`              | Remove member from squad                                      |
+| `squads.getMembers(squadId)`                     | List active squad members                                     |
+| `squads.invites.create(squadId, uid)`            | Create an invite for a user                                   |
+| `squads.invites.list(squadId)`                   | List squad invites                                            |
+| `squads.invites.accept(squadId, inviteId, uid)`  | Accept an invite                                              |
+| `squads.invites.decline(squadId, inviteId, uid)` | Decline an invite                                             |
+| `squads.invites.cancel(squadId, inviteId)`       | Cancel an invite (owner)                                      |
+| `squads.invites.incoming(uid)`                   | Get incoming invites for a user                               |
+| `events.subscribe(events?)`                      | Open SSE stream for real-time events                          |
 
 ### Event Streaming
 
@@ -181,7 +186,7 @@ export default { name: "stripe", provider: new StripeProvider() };
 | `Payment.id(id).renew()`      | Provider-managed renewal     |
 | `Payment.ignore()`            | Ignore an irrelevant webhook |
 
-> **Note:** Provider plugins require `experimentalDecorators` in their `tsconfig.json`. See the [example provider](https://github.com/dortanes/anybill/tree/main/example/providers) for a complete setup.
+> **Note:** Provider plugins require `experimentalDecorators` in their `tsconfig.json`. See the [example provider](https://github.com/labostack/anybill/tree/main/example/providers) for a complete setup.
 
 ## License
 

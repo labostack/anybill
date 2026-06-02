@@ -5,12 +5,12 @@
     "license": "MIT",
     "repository": {
         "type": "git",
-        "url": "https://github.com/dortanes/anybill.git",
+        "url": "https://github.com/labostack/anybill.git",
         "directory": "packages/sdk"
     },
-    "homepage": "https://github.com/dortanes/anybill/tree/main/packages/sdk#readme",
+    "homepage": "https://github.com/labostack/anybill/tree/main/packages/sdk#readme",
     "bugs": {
-        "url": "https://github.com/dortanes/anybill/issues"
+        "url": "https://github.com/labostack/anybill/issues"
     },
     "main": "dist/index.js",
     "types": "dist/index.d.ts",

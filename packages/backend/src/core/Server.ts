@@ -34,7 +34,9 @@ import { AppDataSource } from "./datasource";
 import "./filters/HttpExceptionFilter";
 import "./filters/GlobalErrorFilter";
 
-const pkg = JSON.parse(readFileSync(join(__dirname, "../../package.json"), "utf-8"));
+const pkg = JSON.parse(
+  readFileSync(join(__dirname, "../../package.json"), "utf-8"),
+);
 
 // ─── Admin Controllers ──────────────────────────────────────────────
 import { AuthController } from "../controllers/admin/AuthController";
@@ -68,120 +70,129 @@ import { HealthController } from "../controllers/HealthController";
 // ─── Background Workers (side-effect imports for DI registration) ───
 import "../services/InvoiceExpirationWorker";
 
-
-
 @Configuration({
-    port: Number(process.env.PORT) || 3000,
-    acceptMimes: ["application/json", "text/event-stream"],
-    mount: {
-        "/api/admin": [
-            AuthController,
-            SubscriptionsController,
-            SubscribersController,
-            InvoicesController,
-            DashboardController,
-            SettingsController,
-            ApiKeysController,
-            WebhooksController,
-            CheckoutLinksController,
-            CouponsController,
-        ],
-        "/api/checkout": [CheckoutController],
-        "/api/portal": [PortalController],
-        "/api/webhook": [WebhookController],
-        "/api/sdk": [SdkController, SquadController, SdkEventsController],
-        "/": [HealthController],
-    },
-    swagger: [
-        {
-            path: "/api/docs",
-            specVersion: "3.0.3",
-            spec: {
-                info: {
-                    title: "AnyBill API",
-                    version: pkg.version,
-                    description:
-                        "Headless, provider-agnostic billing platform. " +
-                        "Self-hosted, API-first, zero vendor lock-in.",
-                    license: { name: "MIT", url: "https://github.com/dortanes/anybill/blob/main/LICENSE" },
-                },
-                components: {
-                    securitySchemes: {
-                        cookieAuth: {
-                            type: "apiKey",
-                            in: "cookie",
-                            name: "anybill_session",
-                            description: "JWT session cookie (set by POST /api/admin/auth/login)",
-                        },
-                        apiKeyAuth: {
-                            type: "apiKey",
-                            in: "header",
-                            name: "X-Api-Key",
-                            description: "API key from the admin dashboard (Settings → API Keys)",
-                        },
-                    },
-                },
-            },
+  port: Number(process.env.PORT) || 3000,
+  acceptMimes: ["application/json", "text/event-stream"],
+  mount: {
+    "/api/admin": [
+      AuthController,
+      SubscriptionsController,
+      SubscribersController,
+      InvoicesController,
+      DashboardController,
+      SettingsController,
+      ApiKeysController,
+      WebhooksController,
+      CheckoutLinksController,
+      CouponsController,
+    ],
+    "/api/checkout": [CheckoutController],
+    "/api/portal": [PortalController],
+    "/api/webhook": [WebhookController],
+    "/api/sdk": [SdkController, SquadController, SdkEventsController],
+    "/": [HealthController],
+  },
+  swagger: [
+    {
+      path: "/api/docs",
+      specVersion: "3.0.3",
+      spec: {
+        info: {
+          title: "AnyBill API",
+          version: pkg.version,
+          description:
+            "Headless, provider-agnostic billing platform. " +
+            "Self-hosted, API-first, zero vendor lock-in.",
+          license: {
+            name: "MIT",
+            url: "https://github.com/labostack/anybill/blob/main/LICENSE",
+          },
         },
-    ],
-    middlewares: [
-        helmet({
-            contentSecurityPolicy: false, // SPAs manage their own CSP.
-            crossOriginEmbedderPolicy: false,
-        }),
-        cors({
-            origin: [
-                process.env.ADMIN_ORIGIN || "http://localhost:3001",
-                process.env.CHECKOUT_ORIGIN || "http://localhost:3002",
-            ],
-            credentials: true,
-        }),
-        express.json({
-            verify: (req: any, _res, buf) => {
-                // Preserve the raw request body (as Buffer) for webhook signature verification.
-                // Providers need the original bytes — once parsed to an object, HMAC can't be recomputed.
-                req.rawBody = buf;
+        components: {
+          securitySchemes: {
+            cookieAuth: {
+              type: "apiKey",
+              in: "cookie",
+              name: "anybill_session",
+              description:
+                "JWT session cookie (set by POST /api/admin/auth/login)",
             },
-        }),
-        express.text({ type: "text/plain" }),
-        express.urlencoded({ extended: true }),
-    ],
-    logger: {
-        level: (process.env.LOG_LEVEL || (process.env.NODE_ENV === "production" ? "info" : "debug")) as "debug" | "info" | "warn" | "error" | "off",
-        disableRoutesSummary: process.env.NODE_ENV === "production",
-        logRequest: true,
-        requestFields: ["reqId", "method", "url", "duration"],
+            apiKeyAuth: {
+              type: "apiKey",
+              in: "header",
+              name: "X-Api-Key",
+              description:
+                "API key from the admin dashboard (Settings → API Keys)",
+            },
+          },
+        },
+      },
     },
+  ],
+  middlewares: [
+    helmet({
+      contentSecurityPolicy: false, // SPAs manage their own CSP.
+      crossOriginEmbedderPolicy: false,
+    }),
+    cors({
+      origin: [
+        process.env.ADMIN_ORIGIN || "http://localhost:3001",
+        process.env.CHECKOUT_ORIGIN || "http://localhost:3002",
+      ],
+      credentials: true,
+    }),
+    express.json({
+      verify: (req: any, _res, buf) => {
+        // Preserve the raw request body (as Buffer) for webhook signature verification.
+        // Providers need the original bytes — once parsed to an object, HMAC can't be recomputed.
+        req.rawBody = buf;
+      },
+    }),
+    express.text({ type: "text/plain" }),
+    express.urlencoded({ extended: true }),
+  ],
+  logger: {
+    level: (process.env.LOG_LEVEL ||
+      (process.env.NODE_ENV === "production" ? "info" : "debug")) as
+      | "debug"
+      | "info"
+      | "warn"
+      | "error"
+      | "off",
+    disableRoutesSummary: process.env.NODE_ENV === "production",
+    logRequest: true,
+    requestFields: ["reqId", "method", "url", "duration"],
+  },
 })
 export class Server {
-    @Inject()
-    app!: PlatformApplication;
+  @Inject()
+  app!: PlatformApplication;
 
-    @Inject()
-    logger!: Logger;
+  @Inject()
+  logger!: Logger;
 
-    /**
-     * Create the database directory before TypeORM initializes.
-     * Runs before the Ts.ED IoC container is built.
-     */
-    async $beforeInit(): Promise<void> {
-        mkdirSync(process.env.DB_DIR || "./data", { recursive: true });
+  /**
+   * Create the database directory before TypeORM initializes.
+   * Runs before the Ts.ED IoC container is built.
+   */
+  async $beforeInit(): Promise<void> {
+    mkdirSync(process.env.DB_DIR || "./data", { recursive: true });
+  }
+
+  /**
+   * Initialize the TypeORM DataSource after the server is configured.
+   */
+  async $afterInit(): Promise<void> {
+    await AppDataSource.initialize();
+    this.logger.info("Database connected");
+  }
+
+  /**
+   * Gracefully close the database connection on shutdown.
+   */
+  async $onDestroy(): Promise<void> {
+    if (AppDataSource.isInitialized) {
+      await AppDataSource.destroy();
     }
-
-    /**
-     * Initialize the TypeORM DataSource after the server is configured.
-     */
-    async $afterInit(): Promise<void> {
-        await AppDataSource.initialize();
-        this.logger.info("Database connected");
-    }
-
-    /**
-     * Gracefully close the database connection on shutdown.
-     */
-    async $onDestroy(): Promise<void> {
-        if (AppDataSource.isInitialized) {
-            await AppDataSource.destroy();
-        }
-    }
+  }
 }

@@ -14,7 +14,7 @@ Thank you for your interest in contributing! This guide will help you get starte
 
 ```bash
 # Clone the repo
-git clone https://github.com/dortanes/anybill.git
+git clone https://github.com/labostack/anybill.git
 cd anybill
 
 # Install dependencies
@@ -30,11 +30,11 @@ pnpm dev
 
 This starts:
 
-| Service  | URL                    |
-| -------- | ---------------------- |
-| Backend  | http://localhost:3000   |
-| Admin    | http://localhost:3001   |
-| Checkout | http://localhost:3002   |
+| Service  | URL                   |
+| -------- | --------------------- |
+| Backend  | http://localhost:3000 |
+| Admin    | http://localhost:3001 |
+| Checkout | http://localhost:3002 |
 
 ### Project Structure
 
@@ -109,5 +109,5 @@ AnyBill dispatches HMAC-SHA256 signed events to user-configured endpoints with e
 
 ## Reporting Issues
 
-- Use [GitHub Issues](https://github.com/dortanes/anybill/issues) for bugs and feature requests
+- Use [GitHub Issues](https://github.com/labostack/anybill/issues) for bugs and feature requests
 - For security vulnerabilities, see [SECURITY.md](SECURITY.md)

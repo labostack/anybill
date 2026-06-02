@@ -1,6 +1,6 @@
 services:
   anybill:
-    image: ghcr.io/dortanes/anybill:latest
+    image: ghcr.io/labostack/anybill:latest
     ports:
       - "3000:3000"
     environment:
