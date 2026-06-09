@@ -107,6 +107,19 @@ export interface PaymentContext {
     /** The subscriber / user initiating the payment. */
     user: PaymentUser;
     /**
+     * Origin (scheme + host) of the checkout page that initiated the payment.
+     * Derived from the request's `Origin` header (falls back to `Referer`).
+     *
+     * Providers can use this to build absolute callback URLs, e.g.:
+     * ```ts
+     * success_url: `${ctx.origin}/confirm/${ctx.plan.invoiceId}`
+     * ```
+     *
+     * May be `undefined` if the request had no Origin/Referer header
+     * (e.g. server-to-server calls).
+     */
+    origin?: string;
+    /**
      * IP address of the client initiating the payment.
      * Resolved in order: `X-Real-IP` → first value of `X-Forwarded-For` → socket remote address.
      * May be `undefined` if the IP could not be determined.

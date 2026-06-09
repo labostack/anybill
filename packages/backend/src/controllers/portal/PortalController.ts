@@ -31,7 +31,7 @@ import { verifyPortalToken } from "../../core/portalToken";
 import { createCheckoutToken } from "../../core/checkoutToken";
 import { PortalCancelBody, PortalRenewBody } from "../../models/PortalModels";
 
-const CHECKOUT_ORIGIN = process.env.CHECKOUT_ORIGIN || "http://localhost:3002";
+
 
 @Controller("/")
 @Tags("Portal")
@@ -344,7 +344,7 @@ export class PortalController {
 
         // Create a checkout link for the same plan.
         const { token: checkoutToken } = createCheckoutToken(subscriber.subscriptionId, uid);
-        const checkoutUrl = `${CHECKOUT_ORIGIN}/pay/s/${checkoutToken}`;
+        const checkoutUrl = `/pay/s/${checkoutToken}`;
 
         this.logger.info(`Portal: renewal initiated for subscriber ${subscriberId}`);
 

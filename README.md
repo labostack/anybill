@@ -276,8 +276,6 @@ All configuration is via environment variables.
 | `LINK_SECRET`     | —                       | **Required.** Encryption key for checkout and portal links |
 | `DB_PATH`         | `/data/anybill.db`      | SQLite database path                                       |
 | `PROVIDERS`       | —                       | Path to provider plugins directory                         |
-| `CHECKOUT_ORIGIN` | `http://localhost:3002` | Checkout domain (CORS and payment links)                   |
-| `ADMIN_ORIGIN`    | `http://localhost:3001` | Admin domain (CORS)                                        |
 | `JWT_EXPIRY`      | `7d`                    | Admin session lifetime                                     |
 | `BCRYPT_ROUNDS`   | `12`                    | Password hashing cost factor                               |
 

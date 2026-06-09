@@ -8,7 +8,7 @@
     "dev": {
       "persistent": true,
       "cache": false,
-      "env": ["JWT_SECRET", "PORT", "DB_PATH", "ADMIN_ORIGIN", "CHECKOUT_ORIGIN", "PROVIDERS"]
+      "env": ["JWT_SECRET", "PORT", "DB_PATH", "PROVIDERS"]
     },
     "typecheck": {
       "dependsOn": ["^build"]

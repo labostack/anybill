@@ -21,7 +21,7 @@ import { createPortalToken } from "../../core/portalToken";
 import { CreateCheckoutLinkBody } from "../../models/CheckoutLinkModels";
 import { CreatePortalLinkBody } from "../../models/PortalLinkModels";
 
-const CHECKOUT_ORIGIN = process.env.CHECKOUT_ORIGIN || "http://localhost:3002";
+
 
 @Controller("/")
 @UseBefore(AdminGuard)
@@ -57,7 +57,7 @@ export class CheckoutLinksController {
 
         return {
             token,
-            url: `${CHECKOUT_ORIGIN}/pay/s/${token}`,
+            url: `/pay/s/${token}`,
             expiresAt: expiresAt.toISOString(),
         };
     }
@@ -83,7 +83,7 @@ export class CheckoutLinksController {
 
         return {
             token,
-            url: `${CHECKOUT_ORIGIN}/portal/${token}`,
+            url: `/portal/${token}`,
             expiresAt: expiresAt.toISOString(),
         };
     }

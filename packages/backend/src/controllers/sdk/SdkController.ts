@@ -24,7 +24,7 @@ import { CreatePortalLinkBody } from "../../models/PortalLinkModels";
 import { StartTrialBody } from "../../models/TrialModels";
 import { BillingService } from "../../services/BillingService";
 
-const CHECKOUT_ORIGIN = process.env.CHECKOUT_ORIGIN || "http://localhost:3002";
+
 
 @Controller("/")
 @UseBefore(SdkGuard)
@@ -117,7 +117,7 @@ export class SdkController {
 
         return {
             token,
-            url: `${CHECKOUT_ORIGIN}/pay/s/${token}`,
+            url: `/pay/s/${token}`,
             expiresAt: expiresAt.toISOString(),
         };
     }
@@ -148,7 +148,7 @@ export class SdkController {
 
         return {
             token,
-            url: `${CHECKOUT_ORIGIN}/portal/${token}`,
+            url: `/portal/${token}`,
             expiresAt: expiresAt.toISOString(),
         };
     }

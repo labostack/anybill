@@ -49,6 +49,11 @@ export interface PaymentContext {
         subscriberId: string;
     };
     /**
+     * Origin (scheme + host) of the checkout page that initiated the payment.
+     * Providers use this to build absolute callback URLs (e.g. success_url).
+     */
+    origin?: string;
+    /**
      * IP address of the client initiating the payment.
      * Resolved from `X-Real-IP` → first value of `X-Forwarded-For` → socket remote address.
      */

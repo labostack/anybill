@@ -56,6 +56,13 @@ export class CheckoutController {
             req.ip ??
             req.socket?.remoteAddress;
 
+        // Resolve origin for provider callback URLs (e.g. success_url).
+        // Prefer the Origin header; fall back to the origin portion of the Referer.
+        let origin: string | undefined = req.headers["origin"] as string | undefined;
+        if (!origin && req.headers["referer"]) {
+            try { origin = new URL(req.headers["referer"] as string).origin; } catch { /* ignore */ }
+        }
+
         // Use couponCode from body, or from token if pre-applied
         const effectiveCouponCode = couponCode || payload.coupon_code;
         return this.billing.createPayment(
@@ -65,6 +72,7 @@ export class CheckoutController {
             effectiveCouponCode,
             payload.prev_subscriber_id,
             clientIp,
+            origin,
         );
     }
 

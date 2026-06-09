@@ -13,8 +13,8 @@
  * In production, also serves the admin and checkout SPA bundles
  * as static files from `/admin` and `/` respectively.
  *
- * CORS is configured to allow requests from the admin and checkout
- * frontend origins (configurable via environment variables).
+ * CORS is configured to mirror the request Origin header,
+ * allowing any frontend to call the API.
  */
 
 import { Configuration, Inject } from "@tsed/di";
@@ -135,10 +135,7 @@ import "../services/InvoiceExpirationWorker";
       crossOriginEmbedderPolicy: false,
     }),
     cors({
-      origin: [
-        process.env.ADMIN_ORIGIN || "http://localhost:3001",
-        process.env.CHECKOUT_ORIGIN || "http://localhost:3002",
-      ],
+      origin: true,
       credentials: true,
     }),
     express.json({

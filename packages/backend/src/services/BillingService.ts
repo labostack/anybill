@@ -88,7 +88,7 @@ export class BillingService implements OnInit {
      * @returns Invoice ID and payment URL.
      * @throws {Error} If the subscription doesn't exist or one-time was already purchased.
      */
-    async createPayment(subscriptionId: string, uid: string, providerName: string, couponCode?: string, prevSubscriberId?: string, clientIp?: string) {
+    async createPayment(subscriptionId: string, uid: string, providerName: string, couponCode?: string, prevSubscriberId?: string, clientIp?: string, origin?: string) {
         const invoiceRepo = AppDataSource.getRepository(Invoice);
         const subscriberRepo = AppDataSource.getRepository(Subscriber);
         const subscriptionRepo = AppDataSource.getRepository(Subscription);
@@ -218,6 +218,7 @@ export class BillingService implements OnInit {
         const link = await this.engine.createPaymentLink(providerName, {
             plan: { ...subscription, amount: invoiceAmount, invoiceId: invoice.id },
             user: { uid, subscriberId: subscriber.id },
+            origin,
             clientIp,
         });
 
