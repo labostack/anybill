@@ -71,7 +71,7 @@ export function PaymentLinks() {
 
             const link: GeneratedLink = {
                 type: "checkout",
-                url: data.url,
+                url: `${window.location.origin}${data.url}`,
                 expiresAt: data.expiresAt,
                 label: selectedSub()?.name || "Unknown",
                 uid: checkoutUid().trim(),
@@ -100,7 +100,7 @@ export function PaymentLinks() {
 
             const link: GeneratedLink = {
                 type: "portal",
-                url: data.url,
+                url: `${window.location.origin}${data.url}`,
                 expiresAt: data.expiresAt,
                 label: "Portal",
                 uid: portalUid().trim(),
