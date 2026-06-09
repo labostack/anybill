@@ -86,6 +86,13 @@ export class Invoice {
     @Column({ type: "simple-json", nullable: true })
     providerData!: Record<string, any> | null;
 
+    /**
+     * Per-checkout success redirect URL (optional).
+     * Overrides the account-level `successRedirectUrl` for this invoice.
+     */
+    @Column({ type: "text", nullable: true, default: null })
+    successUrl!: string | null;
+
     /** Timestamp when the payment was confirmed. */
     @Column({ type: "datetime", nullable: true })
     paidAt!: Date | null;

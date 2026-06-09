@@ -140,17 +140,18 @@ export class AnybillSDK {
      *
      * @param subscriptionId - Plan ID to purchase.
      * @param uid            - External user identifier.
-     * @param options        - Optional settings: `ttl` (60–86400), `couponCode`.
+     * @param options        - Optional settings: `ttl` (60–86400), `couponCode`, `successUrl`.
      * @returns Checkout link with token, URL, and expiration.
      */
     async createCheckoutLink(
         subscriptionId: string,
         uid: string,
-        options?: { ttl?: number; couponCode?: string },
+        options?: { ttl?: number; couponCode?: string; successUrl?: string },
     ): Promise<CheckoutLink> {
         const body: Record<string, any> = { sub_id: subscriptionId, uid };
         if (options?.ttl !== undefined) body.ttl = options.ttl;
         if (options?.couponCode) body.coupon_code = options.couponCode;
+        if (options?.successUrl) body.success_url = options.successUrl;
         return this.post("/checkout-links", body);
     }
 

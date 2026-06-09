@@ -98,7 +98,7 @@ export class SdkController {
     @Returns(200)
     @Returns(400)
     @Returns(404)
-    async createCheckoutLink(@BodyParams() { sub_id, uid, ttl, coupon_code }: CreateCheckoutLinkBody) {
+    async createCheckoutLink(@BodyParams() { sub_id, uid, ttl, coupon_code, success_url }: CreateCheckoutLinkBody) {
         const subscription = await AppDataSource.getRepository(Subscription).findOneBy({
             id: sub_id,
             isActive: true,
@@ -113,7 +113,7 @@ export class SdkController {
             if (!coupon) throw new NotFound("Coupon not found or inactive");
         }
 
-        const { token, expiresAt } = createCheckoutToken(sub_id, uid, ttl, coupon_code?.toUpperCase());
+        const { token, expiresAt } = createCheckoutToken(sub_id, uid, ttl, coupon_code?.toUpperCase(), undefined, success_url);
 
         return {
             token,

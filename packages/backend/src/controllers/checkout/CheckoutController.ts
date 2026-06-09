@@ -73,6 +73,7 @@ export class CheckoutController {
             payload.prev_subscriber_id,
             clientIp,
             origin,
+            payload.success_url,
         );
     }
 

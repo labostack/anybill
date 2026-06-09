@@ -41,6 +41,11 @@ const trial = await client.startTrial("user_123");
 const link = await client.createCheckoutLink("plan-uuid", "user_123");
 // link.url → redirect user here
 
+// With custom success redirect (overrides account setting)
+const link2 = await client.createCheckoutLink("plan-uuid", "user_123", {
+  successUrl: "https://myapp.com/thanks",
+});
+
 // Create a portal link for subscriber self-service
 const portal = await client.createPortalLink("user_123");
 // portal.url → redirect user to manage their subscription
@@ -98,7 +103,7 @@ stream.close();
 | `getSubscriberByUid(uid)`                        | Find subscribers by external user ID                          |
 | `getSubscriber(id)`                              | Get a subscriber by AnyBill ID                                |
 | `getInvoice(id)`                                 | Get an invoice by ID                                          |
-| `createCheckoutLink(planId, uid, ttl?)`          | Create a secure, time-limited checkout URL                    |
+| `createCheckoutLink(planId, uid, opts?)`         | Create a secure checkout URL (`opts`: `ttl`, `couponCode`, `successUrl`) |
 | `createPortalLink(uid, ttl?)`                    | Create a time-limited subscriber portal URL                   |
 | `checkAccess(uid, subscriptionId?)`              | Check if user has access (direct or squad)                    |
 | `startTrial(uid, subscriptionId?)`               | Start a free trial for a user (auto-resolves plan if omitted) |

@@ -167,6 +167,11 @@ const access = await client.checkAccess("user_123");
 // Generate a checkout link
 const { url } = await client.createCheckoutLink("plan_id", "user_123");
 
+// With custom success redirect (overrides account-level setting)
+const { url: customUrl } = await client.createCheckoutLink("plan_id", "user_123", {
+  successUrl: "https://myapp.com/thanks",
+});
+
 // Generate a self-service portal link
 const portal = await client.createPortalLink("user_123");
 

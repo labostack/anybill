@@ -29,4 +29,12 @@ export class CreateCheckoutLinkBody {
     @Optional()
     @MaxLength(32)
     coupon_code?: string;
+
+    /**
+     * Custom success redirect URL. Overrides the account-level `successRedirectUrl`.
+     * The user is redirected here after payment confirmation.
+     */
+    @Optional()
+    @MaxLength(2048)
+    success_url?: string;
 }

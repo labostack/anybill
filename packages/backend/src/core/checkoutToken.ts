@@ -26,6 +26,11 @@ export interface CheckoutTokenPayload {
      * When set, the old subscriber is cancelled only after this payment is confirmed.
      */
     prev_subscriber_id?: string;
+    /**
+     * Custom success redirect URL (optional).
+     * Overrides the account-level `successRedirectUrl` after payment confirmation.
+     */
+    success_url?: string;
 }
 
 /** Default token TTL in seconds (30 minutes). */
@@ -47,11 +52,13 @@ export function createCheckoutToken(
     ttlSeconds: number = DEFAULT_TTL,
     couponCode?: string,
     prevSubscriberId?: string,
+    successUrl?: string,
 ): { token: string; expiresAt: Date } {
     const exp = Math.floor(Date.now() / 1000) + ttlSeconds;
     const payload: CheckoutTokenPayload = { sub_id: subId, uid, exp };
     if (couponCode) payload.coupon_code = couponCode;
     if (prevSubscriberId) payload.prev_subscriber_id = prevSubscriberId;
+    if (successUrl) payload.success_url = successUrl;
     const token = encryptToken(payload);
 
     return {

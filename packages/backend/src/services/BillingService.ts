@@ -88,7 +88,7 @@ export class BillingService implements OnInit {
      * @returns Invoice ID and payment URL.
      * @throws {Error} If the subscription doesn't exist or one-time was already purchased.
      */
-    async createPayment(subscriptionId: string, uid: string, providerName: string, couponCode?: string, prevSubscriberId?: string, clientIp?: string, origin?: string) {
+    async createPayment(subscriptionId: string, uid: string, providerName: string, couponCode?: string, prevSubscriberId?: string, clientIp?: string, origin?: string, successUrl?: string) {
         const invoiceRepo = AppDataSource.getRepository(Invoice);
         const subscriberRepo = AppDataSource.getRepository(Subscriber);
         const subscriptionRepo = AppDataSource.getRepository(Subscription);
@@ -198,7 +198,6 @@ export class BillingService implements OnInit {
             couponId = result.coupon!.id;
         }
 
-        // Create pending invoice.
         const invoice = invoiceRepo.create({
             subscriberId: subscriber.id,
             subscriptionId: subscription.id,
@@ -209,6 +208,7 @@ export class BillingService implements OnInit {
             originalAmount,
             discountAmount,
             couponId,
+            successUrl: successUrl || null,
         });
         await invoiceRepo.save(invoice);
 
@@ -301,7 +301,9 @@ export class BillingService implements OnInit {
 
         return {
             status: invoice.status,
-            redirectUrl: invoice.status === "paid" ? account?.successRedirectUrl : null,
+            redirectUrl: invoice.status === "paid"
+                ? (invoice.successUrl || account?.successRedirectUrl || null)
+                : null,
         };
     }
 
