@@ -118,6 +118,9 @@ stream.close();
 | `checkAccess(uid, subscriptionId?)`              | Check if user has access (direct or squad)                    |
 | `startTrial(uid, subscriptionId?)`               | Start a free trial for a user (auto-resolves plan if omitted) |
 | `grantSubscription(planId, uid, opts?)`          | Grant a subscription without payment (`opts`: `days`, `startDate`) |
+| `cancelSubscriber(subscriberId)`                 | Cancel subscription (access until period end)                 |
+| `revokeSubscriber(subscriberId)`                 | Immediately revoke access (no grace period)                   |
+| `deleteSubscriber(subscriberId)`                 | Permanently delete subscriber and all related data            |
 | `squads.create(subscriberId)`                    | Create a squad for a subscriber                               |
 | `squads.get(squadId)`                            | Get squad by ID                                               |
 | `squads.getByOwnerUid(uid)`                      | Find squad by owner's uid                                     |

@@ -7,7 +7,7 @@
  * Used by the `@anybill/sdk` client library and third-party integrations.
  */
 
-import { Controller, Get, Post, BodyParams, PathParams, QueryParams, UseBefore } from "@tsed/common";
+import { Controller, Get, Post, Delete, BodyParams, PathParams, QueryParams, UseBefore } from "@tsed/common";
 import { Inject } from "@tsed/di";
 import { NotFound } from "@tsed/exceptions";
 import { Tags, Summary, Description, Returns } from "@tsed/schema";
@@ -186,5 +186,50 @@ export class SdkController {
     @Returns(409)
     async grantSubscription(@BodyParams() { uid, subscriptionId, days, startDate }: GrantSubscriptionBody) {
         return this.billingService.grantSubscription(uid, subscriptionId, days, startDate);
+    }
+
+    /**
+     * Cancel a subscriber's subscription.
+     *
+     * Keeps `currentPeriodEnd` so the subscriber retains access
+     * until the end of their current billing period.
+     */
+    @Post("/subscribers/:id/cancel")
+    @Summary("Cancel subscription")
+    @Description("Cancels a recurring subscription. Access is retained until the current period ends.")
+    @Returns(200)
+    @Returns(400)
+    @Returns(404)
+    async cancelSubscriber(@PathParams("id") id: string) {
+        return this.billingService.cancelSubscriber(id);
+    }
+
+    /**
+     * Revoke a subscriber's access immediately.
+     *
+     * Clears billing period dates so the subscriber loses access right away.
+     */
+    @Post("/subscribers/:id/revoke")
+    @Summary("Revoke subscriber access")
+    @Description("Immediately revokes access by setting status to cancelled and clearing billing period dates.")
+    @Returns(200)
+    @Returns(404)
+    async revokeSubscriber(@PathParams("id") id: string) {
+        return this.billingService.revokeSubscriber(id);
+    }
+
+    /**
+     * Permanently delete a subscriber and all related records.
+     *
+     * Cascade-deletes squad, members, invites, and invoices.
+     * This action cannot be undone.
+     */
+    @Delete("/subscribers/:id")
+    @Summary("Delete subscriber")
+    @Description("Permanently deletes a subscriber and all their related data (invoices, squad, members). Cannot be undone.")
+    @Returns(200)
+    @Returns(404)
+    async deleteSubscriber(@PathParams("id") id: string) {
+        return this.billingService.deleteSubscriber(id);
     }
 }

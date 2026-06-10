@@ -288,7 +288,7 @@ export interface SubscriptionCancelledEvent {
     subscriberId: string;
     subscriptionId: string;
     uid: string;
-    cancelledVia: "portal" | "plan_change";
+    cancelledVia: "portal" | "plan_change" | "sdk" | "admin";
     accessUntil: string | null;
     /** Present when cancelled due to plan change. */
     newSubscriberId?: string;

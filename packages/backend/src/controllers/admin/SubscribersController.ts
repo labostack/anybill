@@ -233,13 +233,7 @@ export class SubscribersController {
     @Returns(400)
     @Returns(404)
     async cancel(@PathParams("id") id: string) {
-        const sub = await this.repo().findOne({ where: { id }, relations: ["subscription"] });
-        if (!sub) throw new AppError(404, ErrorCode.SUBSCRIBER_NOT_FOUND, "Subscriber not found");
-        if (sub.subscription?.interval === "one_time") {
-            throw new AppError(400, ErrorCode.SUBSCRIPTION_NOT_CANCELLABLE, "One-time subscriptions cannot be cancelled");
-        }
-        sub.status = "cancelled";
-        return this.repo().save(sub);
+        return this.billing.cancelSubscriber(id);
     }
 
     /**
@@ -255,12 +249,7 @@ export class SubscribersController {
     @Returns(200)
     @Returns(404)
     async revoke(@PathParams("id") id: string) {
-        const sub = await this.repo().findOneBy({ id });
-        if (!sub) throw new AppError(404, ErrorCode.SUBSCRIBER_NOT_FOUND, "Subscriber not found");
-        sub.status = "cancelled";
-        sub.currentPeriodStart = null as any;
-        sub.currentPeriodEnd = null as any;
-        return this.repo().save(sub);
+        return this.billing.revokeSubscriber(id);
     }
 
     /** Refund an active subscriber's latest paid invoice. */
@@ -291,27 +280,6 @@ export class SubscribersController {
     @Returns(200)
     @Returns(404)
     async delete(@PathParams("id") id: string) {
-        const sub = await this.repo().findOneBy({ id });
-        if (!sub) throw new AppError(404, ErrorCode.SUBSCRIBER_NOT_FOUND, "Subscriber not found");
-
-        // Resolve squad owned by this subscriber (if any).
-        const squadRepo = AppDataSource.getRepository(Squad);
-        const squad = await squadRepo.findOneBy({ ownerId: id });
-
-        if (squad) {
-            // 1. Delete squad invites (FK → squad)
-            await AppDataSource.getRepository(SquadInvite).delete({ squadId: squad.id });
-            // 2. Delete squad members (FK → squad)
-            await AppDataSource.getRepository(SquadMember).delete({ squadId: squad.id });
-            // 3. Delete the squad itself (FK → subscriber)
-            await squadRepo.delete({ id: squad.id });
-        }
-
-        // 4. Delete related invoices (FK → subscriber)
-        await AppDataSource.getRepository(Invoice).delete({ subscriberId: id });
-
-        // 5. Finally delete the subscriber
-        await this.repo().delete({ id });
-        return { success: true };
+        return this.billing.deleteSubscriber(id);
     }
 }

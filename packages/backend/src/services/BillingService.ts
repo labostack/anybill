@@ -19,6 +19,8 @@ import { Subscriber } from "../entities/Subscriber";
 import { Subscription, type SubscriptionInterval } from "../entities/Subscription";
 import { Account } from "../entities/Account";
 import { Squad } from "../entities/Squad";
+import { SquadMember } from "../entities/SquadMember";
+import { SquadInvite } from "../entities/SquadInvite";
 import { ProviderLoader } from "./ProviderLoader";
 import { OutgoingWebhookService } from "./OutgoingWebhookService";
 import { CouponService } from "./CouponService";
@@ -506,6 +508,101 @@ export class BillingService implements OnInit {
             currentPeriodStart: periodStart.toISOString(),
             currentPeriodEnd: periodEnd?.toISOString() ?? null,
         };
+    }
+
+    /**
+     * Cancel a subscriber's subscription.
+     *
+     * Sets status to `cancelled` but preserves `currentPeriodEnd` so the
+     * subscriber retains access until the end of their current billing period.
+     *
+     * @param subscriberId - AnyBill subscriber UUID.
+     * @throws {NotFound}    If subscriber not found.
+     * @throws {BadRequest}  If the plan is one-time (cannot be cancelled).
+     */
+    async cancelSubscriber(subscriberId: string): Promise<Subscriber> {
+        const subscriberRepo = AppDataSource.getRepository(Subscriber);
+        const sub = await subscriberRepo.findOne({ where: { id: subscriberId }, relations: ["subscription"] });
+        if (!sub) throw new NotFound("Subscriber not found");
+        if (sub.subscription?.interval === "one_time") {
+            throw new BadRequest("One-time subscriptions cannot be cancelled");
+        }
+        sub.status = "cancelled";
+        const saved = await subscriberRepo.save(sub);
+
+        await this.outgoingWebhooks.dispatch("subscription.cancelled", {
+            subscriberId: sub.id,
+            subscriptionId: sub.subscriptionId,
+            uid: sub.uid,
+            cancelledVia: "sdk",
+            accessUntil: sub.currentPeriodEnd?.toISOString() ?? null,
+        });
+
+        this.logger.info(`Subscription cancelled: subscriber=${subscriberId}`);
+        return saved;
+    }
+
+    /**
+     * Revoke a subscriber's access immediately.
+     *
+     * Sets status to `cancelled` AND clears billing period dates, so the
+     * subscriber loses access right away (no grace period).
+     *
+     * @param subscriberId - AnyBill subscriber UUID.
+     * @throws {NotFound} If subscriber not found.
+     */
+    async revokeSubscriber(subscriberId: string): Promise<Subscriber> {
+        const subscriberRepo = AppDataSource.getRepository(Subscriber);
+        const sub = await subscriberRepo.findOneBy({ id: subscriberId });
+        if (!sub) throw new NotFound("Subscriber not found");
+
+        sub.status = "cancelled";
+        sub.currentPeriodStart = null as any;
+        sub.currentPeriodEnd = null as any;
+        const saved = await subscriberRepo.save(sub);
+
+        await this.outgoingWebhooks.dispatch("subscription.cancelled", {
+            subscriberId: sub.id,
+            subscriptionId: sub.subscriptionId,
+            uid: sub.uid,
+            cancelledVia: "sdk",
+            accessUntil: null,
+        });
+
+        this.logger.info(`Subscription revoked: subscriber=${subscriberId}`);
+        return saved;
+    }
+
+    /**
+     * Permanently delete a subscriber and all related records.
+     *
+     * Cascade-deletes: squad invites → squad members → squad → invoices → subscriber.
+     * This is a hard delete and cannot be undone.
+     *
+     * @param subscriberId - AnyBill subscriber UUID.
+     * @throws {NotFound} If subscriber not found.
+     */
+    async deleteSubscriber(subscriberId: string): Promise<{ deleted: boolean }> {
+        const subscriberRepo = AppDataSource.getRepository(Subscriber);
+        const sub = await subscriberRepo.findOneBy({ id: subscriberId });
+        if (!sub) throw new NotFound("Subscriber not found");
+
+        // Cascade-delete squad and related records.
+        const squadRepo = AppDataSource.getRepository(Squad);
+        const squad = await squadRepo.findOneBy({ ownerId: subscriberId });
+
+        if (squad) {
+            await AppDataSource.getRepository(SquadInvite).delete({ squadId: squad.id });
+            await AppDataSource.getRepository(SquadMember).delete({ squadId: squad.id });
+            await squadRepo.delete({ id: squad.id });
+        }
+
+        // Delete invoices, then the subscriber.
+        await AppDataSource.getRepository(Invoice).delete({ subscriberId });
+        await subscriberRepo.delete({ id: subscriberId });
+
+        this.logger.info(`Subscriber deleted: id=${subscriberId}, uid=${sub.uid}`);
+        return { deleted: true };
     }
 
     // ─── Shared Helpers ─────────────────────────────────────────

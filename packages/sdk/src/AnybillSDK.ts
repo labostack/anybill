@@ -240,6 +240,46 @@ export class AnybillSDK {
     }
 
     /**
+     * Cancel a subscriber's subscription.
+     *
+     * The subscriber retains access until the end of their current
+     * billing period (`currentPeriodEnd`). One-time subscriptions
+     * cannot be cancelled.
+     *
+     * @param subscriberId - AnyBill subscriber UUID.
+     * @returns Updated subscriber record.
+     */
+    async cancelSubscriber(subscriberId: string): Promise<Subscriber> {
+        return this.post(`/subscribers/${subscriberId}/cancel`, {});
+    }
+
+    /**
+     * Revoke a subscriber's access immediately.
+     *
+     * Unlike `cancelSubscriber`, this clears billing period dates
+     * so the subscriber loses access right away (no grace period).
+     *
+     * @param subscriberId - AnyBill subscriber UUID.
+     * @returns Updated subscriber record.
+     */
+    async revokeSubscriber(subscriberId: string): Promise<Subscriber> {
+        return this.post(`/subscribers/${subscriberId}/revoke`, {});
+    }
+
+    /**
+     * Permanently delete a subscriber and all related records.
+     *
+     * Cascade-deletes the subscriber's invoices, squad, squad members,
+     * and squad invites. **This action cannot be undone.**
+     *
+     * @param subscriberId - AnyBill subscriber UUID.
+     * @returns `{ deleted: true }` on success.
+     */
+    async deleteSubscriber(subscriberId: string): Promise<{ deleted: boolean }> {
+        return this.del(`/subscribers/${subscriberId}`);
+    }
+
+    /**
      * Squad management methods.
      *
      * Squads enable group/family subscriptions where an owner pays and
