@@ -17,7 +17,7 @@
  * ```
  */
 
-import type { AnybillSDKConfig, Subscription, Subscriber, Invoice, CheckoutLink, PortalLink, Squad, SquadMember, SquadInvite, InviteStatus, AccessCheck } from "./types";
+import type { AnybillSDKConfig, Subscription, Subscriber, Invoice, CheckoutLink, PortalLink, Squad, SquadMember, SquadInvite, InviteStatus, AccessCheck, GrantSubscriptionOptions, GrantSubscriptionResult } from "./types";
 import { EventStream } from "./EventStream";
 import type { WebhookEventType } from "./types";
 
@@ -203,6 +203,40 @@ export class AnybillSDK {
         const body: Record<string, any> = { uid };
         if (subscriptionId) body.subscriptionId = subscriptionId;
         return this.post("/start-trial", body);
+    }
+
+    /**
+     * Grant a subscription to a user without requiring payment.
+     *
+     * Immediately activates the subscription for the specified user.
+     * Useful for admin overrides, promotional grants, comp accounts, etc.
+     *
+     * @param subscriptionId - Plan ID to grant.
+     * @param uid            - External user identifier.
+     * @param options        - Optional: `days` (custom duration), `startDate` (ISO 8601).
+     * @returns Grant result with subscriber ID, status, and period dates.
+     *
+     * @example
+     * ```ts
+     * // Grant with plan's default interval
+     * await sdk.grantSubscription("plan_id", "user_123");
+     *
+     * // Grant for 90 days starting from a specific date
+     * await sdk.grantSubscription("plan_id", "user_123", {
+     *   days: 90,
+     *   startDate: "2025-02-01T00:00:00Z",
+     * });
+     * ```
+     */
+    async grantSubscription(
+        subscriptionId: string,
+        uid: string,
+        options?: GrantSubscriptionOptions,
+    ): Promise<GrantSubscriptionResult> {
+        const body: Record<string, any> = { uid, subscriptionId };
+        if (options?.days !== undefined) body.days = options.days;
+        if (options?.startDate) body.startDate = options.startDate;
+        return this.post("/grant", body);
     }
 
     /**

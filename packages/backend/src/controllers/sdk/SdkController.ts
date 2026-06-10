@@ -22,6 +22,7 @@ import { createPortalToken } from "../../core/portalToken";
 import { CreateCheckoutLinkBody } from "../../models/CheckoutLinkModels";
 import { CreatePortalLinkBody } from "../../models/PortalLinkModels";
 import { StartTrialBody } from "../../models/TrialModels";
+import { GrantSubscriptionBody } from "../../models/GrantModels";
 import { BillingService } from "../../services/BillingService";
 
 
@@ -168,5 +169,22 @@ export class SdkController {
     @Returns(409)
     async startTrial(@BodyParams() { uid, subscriptionId }: StartTrialBody) {
         return this.billingService.startTrial(uid, subscriptionId);
+    }
+
+    /**
+     * Grant a subscription to a user without payment.
+     *
+     * Immediately activates the subscription for the specified user.
+     * Optionally overrides the duration (days) and start date.
+     */
+    @Post("/grant")
+    @Summary("Grant subscription")
+    @Description("Grants a subscription to a user without requiring payment. Useful for promotional grants, comp accounts, admin overrides.")
+    @Returns(200)
+    @Returns(400)
+    @Returns(404)
+    @Returns(409)
+    async grantSubscription(@BodyParams() { uid, subscriptionId, days, startDate }: GrantSubscriptionBody) {
+        return this.billingService.grantSubscription(uid, subscriptionId, days, startDate);
     }
 }

@@ -41,7 +41,7 @@
 
 // ─── Client SDK ─────────────────────────────────────────────────────
 export { AnybillSDK } from "./AnybillSDK";
-export type { AnybillSDKConfig, Subscription, Subscriber, Invoice, CheckoutLink, PortalLink, Squad, SquadMember, AccessCheck, Coupon } from "./types";
+export type { AnybillSDKConfig, Subscription, Subscriber, Invoice, CheckoutLink, PortalLink, Squad, SquadMember, AccessCheck, Coupon, GrantSubscriptionOptions, GrantSubscriptionResult } from "./types";
 export { EventStream } from "./EventStream";
 export type { EventStreamConfig } from "./EventStream";
 export type {

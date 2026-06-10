@@ -154,6 +154,32 @@ export interface AccessCheck {
     subscription?: Subscription;
 }
 
+/** Options for granting a subscription without payment. */
+export interface GrantSubscriptionOptions {
+    /**
+     * Custom duration in days. Overrides the plan's standard interval.
+     * Must be >= 1. When omitted, the plan's normal interval is used.
+     */
+    days?: number;
+    /**
+     * Custom start date (ISO 8601 string, e.g. `"2025-01-15T00:00:00Z"`).
+     * When omitted, defaults to now.
+     */
+    startDate?: string;
+}
+
+/** Result returned after granting a subscription. */
+export interface GrantSubscriptionResult {
+    /** AnyBill subscriber UUID. */
+    subscriberId: string;
+    /** Always `"active"` for a successful grant. */
+    status: "active";
+    /** ISO 8601 period start timestamp. */
+    currentPeriodStart: string;
+    /** ISO 8601 period end timestamp (`null` for one-time plans without custom days). */
+    currentPeriodEnd: string | null;
+}
+
 /** Discount coupon / promo code. */
 export interface Coupon {
     id: string;

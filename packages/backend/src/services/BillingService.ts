@@ -391,30 +391,7 @@ export class BillingService implements OnInit {
         }
 
         // 5. Auto-create squad if plan supports it.
-        // Sync maxMembers if the squad already exists (e.g. re-activating a trial).
-        if (subscription.squadEnabled) {
-            const squadRepo = AppDataSource.getRepository(Squad);
-            const existingSquad = await squadRepo.findOneBy({ ownerId: subscriber.id });
-            if (!existingSquad) {
-                const squad = squadRepo.create({
-                    ownerId: subscriber.id,
-                    maxMembers: subscription.squadMaxMembers || 0,
-                });
-                await squadRepo.save(squad);
-                this.logger.info(`Auto-created squad ${squad.id} for trial subscriber ${subscriber.id}`);
-
-                await this.outgoingWebhooks.dispatch("squad.created", {
-                    squadId: squad.id,
-                    ownerUid: uid,
-                    subscriberId: subscriber.id,
-                    subscriptionId: subscription.id,
-                });
-            } else {
-                // Sync maxMembers to current plan (re-trial or plan adjustment).
-                existingSquad.maxMembers = subscription.squadMaxMembers || 0;
-                await squadRepo.save(existingSquad);
-            }
-        }
+        await this.ensureSquad(subscriber, subscription, uid);
 
         // 6. Dispatch webhook.
         await this.outgoingWebhooks.dispatch("trial.started", {
@@ -432,6 +409,160 @@ export class BillingService implements OnInit {
             trialEnd,
             status: "trialing",
         };
+    }
+
+    /**
+     * Grant a subscription to a user without requiring payment.
+     *
+     * Creates (or reuses) a subscriber record in `active` status immediately.
+     * Useful for admin overrides, promotional grants, comp accounts, etc.
+     *
+     * @param uid            - External user identifier.
+     * @param subscriptionId - ID of the subscription plan to grant.
+     * @param days           - Optional custom duration in days. Overrides plan interval.
+     * @param startDate      - Optional start date (ISO 8601). Defaults to now.
+     * @returns The created/updated subscriber record.
+     * @throws {NotFound}  If subscription not found or inactive.
+     * @throws {Conflict}  If user already has an active subscription to this plan.
+     */
+    async grantSubscription(
+        uid: string,
+        subscriptionId: string,
+        days?: number,
+        startDate?: string,
+    ): Promise<{
+        subscriberId: string;
+        status: "active";
+        currentPeriodStart: string;
+        currentPeriodEnd: string | null;
+    }> {
+        const subscriberRepo = AppDataSource.getRepository(Subscriber);
+        const subscriptionRepo = AppDataSource.getRepository(Subscription);
+
+        // 1. Resolve subscription.
+        const subscription = await subscriptionRepo.findOneBy({ id: subscriptionId, isActive: true });
+        if (!subscription) throw new NotFound("Subscription not found or inactive");
+
+        // 2. Check for existing active subscriber.
+        const existing = await subscriberRepo.findOneBy({ uid, subscriptionId });
+        if (existing && (existing.status === "active" || existing.status === "trialing")) {
+            throw new Conflict("User already has an active subscription to this plan");
+        }
+
+        // 3. Compute period.
+        const periodStart = startDate ? new Date(startDate) : new Date();
+        let periodEnd: Date | null = null;
+
+        if (days) {
+            // Custom duration overrides plan interval.
+            periodEnd = new Date(periodStart);
+            periodEnd.setDate(periodEnd.getDate() + days);
+        } else if (subscription.interval !== "one_time") {
+            periodEnd = computePeriodEnd(subscription.interval, subscription.intervalCount, periodStart);
+        }
+
+        // 4. Create or reuse subscriber.
+        let subscriber: Subscriber;
+        if (existing) {
+            existing.status = "active";
+            existing.currentPeriodStart = periodStart;
+            existing.currentPeriodEnd = periodEnd;
+            existing.renewalMode = "manual";
+            existing.provider = null;
+            existing.trialEnd = null;
+            subscriber = await subscriberRepo.save(existing);
+        } else {
+            subscriber = subscriberRepo.create({
+                uid,
+                subscriptionId,
+                status: "active",
+                currentPeriodStart: periodStart,
+                currentPeriodEnd: periodEnd,
+                renewalMode: "manual",
+            });
+            await subscriberRepo.save(subscriber);
+        }
+
+        // 5. Auto-create squad if plan supports it.
+        await this.ensureSquad(subscriber, subscription, uid);
+
+        // 6. Dispatch webhook (reusing payment.confirmed event so integrations react uniformly).
+        await this.outgoingWebhooks.dispatch("payment.confirmed", {
+            invoiceId: null,
+            subscriberId: subscriber.id,
+            subscriptionId: subscription.id,
+            amount: 0,
+            currency: subscription.currency,
+            provider: "grant",
+            providerInvoiceId: null,
+            paidAt: new Date().toISOString(),
+        });
+
+        this.logger.info(`Subscription granted: uid=${uid}, plan=${subscription.name}, period=${periodStart.toISOString()}–${periodEnd?.toISOString() ?? "∞"}`);
+
+        return {
+            subscriberId: subscriber.id,
+            status: "active",
+            currentPeriodStart: periodStart.toISOString(),
+            currentPeriodEnd: periodEnd?.toISOString() ?? null,
+        };
+    }
+
+    // ─── Shared Helpers ─────────────────────────────────────────
+
+    /**
+     * Ensure a squad exists for a subscriber on a squad-enabled plan.
+     *
+     * Handles three scenarios:
+     * 1. **Migration** — if `prevSubscriberId` is provided and the old subscriber
+     *    owns a squad, reassign ownership to the new subscriber.
+     * 2. **Creation** — if no squad exists, create one and dispatch `squad.created`.
+     * 3. **Sync** — if a squad already exists, sync `maxMembers` to the plan's limit.
+     *
+     * No-op if the plan does not have `squadEnabled`.
+     */
+    private async ensureSquad(
+        subscriber: Subscriber,
+        subscription: Subscription,
+        uid: string,
+        prevSubscriberId?: string,
+    ): Promise<void> {
+        if (!subscription.squadEnabled) return;
+
+        const squadRepo = AppDataSource.getRepository(Squad);
+        let squad = await squadRepo.findOneBy({ ownerId: subscriber.id });
+
+        // Migrate squad from previous subscriber (plan change).
+        if (!squad && prevSubscriberId) {
+            const oldSquad = await squadRepo.findOneBy({ ownerId: prevSubscriberId });
+            if (oldSquad) {
+                oldSquad.ownerId = subscriber.id;
+                oldSquad.maxMembers = subscription.squadMaxMembers || 0;
+                squad = await squadRepo.save(oldSquad);
+                this.logger.info(`Migrated squad ${squad.id} from old subscriber ${prevSubscriberId} to ${subscriber.id} on plan ${subscription.name}`);
+            }
+        }
+
+        if (!squad) {
+            // Create new squad.
+            squad = squadRepo.create({
+                ownerId: subscriber.id,
+                maxMembers: subscription.squadMaxMembers || 0,
+            });
+            await squadRepo.save(squad);
+            this.logger.info(`Auto-created squad ${squad.id} for subscriber ${subscriber.id} on plan ${subscription.name}`);
+
+            await this.outgoingWebhooks.dispatch("squad.created", {
+                squadId: squad.id,
+                ownerUid: uid,
+                subscriberId: subscriber.id,
+                subscriptionId: subscription.id,
+            });
+        } else {
+            // Sync maxMembers to current plan.
+            squad.maxMembers = subscription.squadMaxMembers || 0;
+            await squadRepo.save(squad);
+        }
     }
 
     // ─── Event Handlers ─────────────────────────────────────────
@@ -533,44 +664,9 @@ export class BillingService implements OnInit {
                 await subscriberRepo.save(subscriber);
             }
 
-            // Auto-create squad for squad-enabled plans.
-            // If this is a plan change (prevSubscriberId), migrate the old squad to the
-            // new subscriber rather than orphaning it and creating a duplicate.
-            if (subscription && subscription.squadEnabled) {
-                const squadRepo = AppDataSource.getRepository(Squad);
-                let squad = await squadRepo.findOneBy({ ownerId: subscriber.id });
-
-                if (!squad && prevSubscriberId) {
-                    // Migrate the old squad: reassign ownership to the new subscriber
-                    // and sync maxMembers to the new plan's limit.
-                    const oldSquad = await squadRepo.findOneBy({ ownerId: prevSubscriberId });
-                    if (oldSquad) {
-                        oldSquad.ownerId = subscriber.id;
-                        oldSquad.maxMembers = subscription.squadMaxMembers || 0;
-                        squad = await squadRepo.save(oldSquad);
-                        this.logger.info(`Migrated squad ${squad.id} from old subscriber ${prevSubscriberId} to ${subscriber.id} on plan ${subscription.name}`);
-                    }
-                }
-
-                if (!squad) {
-                    squad = squadRepo.create({
-                        ownerId: subscriber.id,
-                        maxMembers: subscription.squadMaxMembers || 0,
-                    });
-                    await squadRepo.save(squad);
-                    this.logger.info(`Auto-created squad ${squad.id} for subscriber ${subscriber.id} on plan ${subscription.name}`);
-
-                    await this.outgoingWebhooks.dispatch("squad.created", {
-                        squadId: squad.id,
-                        ownerUid: subscriber.uid,
-                        subscriberId: subscriber.id,
-                        subscriptionId: subscription.id,
-                    });
-                } else {
-                    // Sync maxMembers to the new plan's limit (covers existing squad without migration).
-                    squad.maxMembers = subscription.squadMaxMembers || 0;
-                    await squadRepo.save(squad);
-                }
+            // Auto-create / migrate squad for squad-enabled plans.
+            if (subscription) {
+                await this.ensureSquad(subscriber, subscription, subscriber.uid, prevSubscriberId);
             }
         }
 

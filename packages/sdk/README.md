@@ -49,6 +49,16 @@ const link2 = await client.createCheckoutLink("plan-uuid", "user_123", {
 // Create a portal link for subscriber self-service
 const portal = await client.createPortalLink("user_123");
 // portal.url → redirect user to manage their subscription
+
+// Grant a subscription without payment (admin/promo)
+const grant = await client.grantSubscription("plan-uuid", "user_123");
+// grant.status → "active"
+
+// Grant for 90 days starting from a specific date
+const grant2 = await client.grantSubscription("plan-uuid", "user_123", {
+  days: 90,
+  startDate: "2025-02-01T00:00:00Z",
+});
 ```
 
 ```typescript
@@ -107,6 +117,7 @@ stream.close();
 | `createPortalLink(uid, ttl?)`                    | Create a time-limited subscriber portal URL                   |
 | `checkAccess(uid, subscriptionId?)`              | Check if user has access (direct or squad)                    |
 | `startTrial(uid, subscriptionId?)`               | Start a free trial for a user (auto-resolves plan if omitted) |
+| `grantSubscription(planId, uid, opts?)`          | Grant a subscription without payment (`opts`: `days`, `startDate`) |
 | `squads.create(subscriberId)`                    | Create a squad for a subscriber                               |
 | `squads.get(squadId)`                            | Get squad by ID                                               |
 | `squads.getByOwnerUid(uid)`                      | Find squad by owner's uid                                     |
