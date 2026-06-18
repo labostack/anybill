@@ -184,6 +184,8 @@ export class CheckoutController {
         if (existingSub) {
             existingSubscription = {
                 name: existingSub.subscription.name,
+                amount: existingSub.subscription.amount,
+                currency: existingSub.subscription.currency,
                 status: existingSub.status,
                 currentPeriodEnd: existingSub.currentPeriodEnd,
             };

@@ -28,7 +28,8 @@
     "oneTimePayment": "one-time payment",
     "per": "per",
     "discountApplied": "{{amount}} off",
-    "existingSubWarning": "You already have an active plan \"{{name}}\" (until {{date}}). Completing this purchase will cancel your current plan and any remaining time will be lost."
+    "existingSubUpgrade": "Your remaining days on \"{{name}}\" will be added to the new plan's period.",
+    "existingSubDowngrade": "You have an active plan \"{{name}}\" (until {{date}}). Switching to a cheaper plan will cancel it and any remaining time will be lost."
   },
   "confirm": {
     "verifying": "Verifying payment",

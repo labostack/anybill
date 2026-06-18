@@ -401,17 +401,32 @@ export function SecureCheckout() {
               </Show>
 
               <Show when={info().existingSubscription}>
-                <div class="checkout-warning">
-                  <AlertTriangle size={16} />
-                  <div>
-                    {t("checkout.existingSubWarning", {
-                      name: info().existingSubscription.name,
-                      date: formatDate(
-                        info().existingSubscription.currentPeriodEnd,
-                      ),
-                    })}
-                  </div>
-                </div>
+                {(() => {
+                  const existing = info().existingSubscription;
+                  const isDowngrade =
+                    existing.amount > info().subscription.amount &&
+                    existing.currency === info().subscription.currency;
+                  return isDowngrade ? (
+                    <div class="checkout-warning">
+                      <AlertTriangle size={16} />
+                      <div>
+                        {t("checkout.existingSubDowngrade", {
+                          name: existing.name,
+                          date: formatDate(existing.currentPeriodEnd),
+                        })}
+                      </div>
+                    </div>
+                  ) : (
+                    <div class="checkout-info">
+                      <ShieldCheck size={16} />
+                      <div>
+                        {t("checkout.existingSubUpgrade", {
+                          name: existing.name,
+                        })}
+                      </div>
+                    </div>
+                  );
+                })()}
               </Show>
 
               <div class="payment-section-label">

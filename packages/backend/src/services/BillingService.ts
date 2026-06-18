@@ -705,16 +705,43 @@ export class BillingService implements OnInit {
                 // Stack periods for renewals: if this subscriber still has remaining
                 // time (e.g. provider-managed renewal or SDK early renewal), extend
                 // from currentPeriodEnd instead of resetting to now.
-                // NOTE: for plan changes, a new subscriber record is created with
+                // For plan changes, a new subscriber record is created with
                 // currentPeriodEnd=null, so periodBase naturally falls to now.
-                // This is intentional — different plans are different products,
-                // remaining time on the old plan does not transfer.
+                // For renewals, stack from currentPeriodEnd if still in the future.
                 const now = new Date();
                 const periodBase = (subscriber.currentPeriodEnd && subscriber.currentPeriodEnd > now)
                     ? subscriber.currentPeriodEnd
                     : now;
                 subscriber.currentPeriodStart = now;
                 subscriber.currentPeriodEnd = computePeriodEnd(subscription.interval, subscription.intervalCount, periodBase);
+
+                // Day summation on upgrade: if the new plan is more expensive than
+                // the old one (same currency), add the remaining days from the old
+                // period to the new period end. This rewards upgraders — they keep
+                // the time they already paid for on the cheaper plan.
+                const prevSubId = subscriber.metadata?.prevSubscriberId;
+                if (prevSubId) {
+                    const prevSub = await subscriberRepo.findOne({
+                        where: { id: prevSubId },
+                        relations: ["subscription"],
+                    });
+                    if (
+                        prevSub?.currentPeriodEnd &&
+                        prevSub.subscription &&
+                        subscription.amount > prevSub.subscription.amount &&
+                        subscription.currency === prevSub.subscription.currency
+                    ) {
+                        const remainingMs = prevSub.currentPeriodEnd.getTime() - now.getTime();
+                        if (remainingMs > 0) {
+                            subscriber.currentPeriodEnd = new Date(
+                                subscriber.currentPeriodEnd!.getTime() + remainingMs,
+                            );
+                            this.logger.info(
+                                `Upgrade day-summation: added ${Math.round(remainingMs / 86400000)}d from old subscriber ${prevSubId} to new period end ${subscriber.currentPeriodEnd.toISOString()}`,
+                            );
+                        }
+                    }
+                }
             } else {
                 subscriber.currentPeriodStart = new Date();
             }
