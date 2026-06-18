@@ -145,17 +145,41 @@ export class CheckoutController {
         // This lets the frontend warn about plan replacement before they pay.
         let existingSubscription = undefined;
         const now = new Date();
-        const existingSub = await AppDataSource.getRepository(Subscriber)
+
+        // First, look for an active/trialing subscriber on a different plan.
+        let existingSub = await AppDataSource.getRepository(Subscriber)
             .createQueryBuilder("s")
             .innerJoinAndSelect("s.subscription", "sub")
             .where("s.uid = :uid", { uid: payload.uid })
             .andWhere("s.subscriptionId != :subId", { subId: payload.sub_id })
-            .andWhere(
-                "(s.status = 'active' OR s.status = 'trialing' OR (s.status = 'cancelled' AND s.currentPeriodEnd > :now))",
-                { now },
-            )
+            .andWhere("s.status IN (:...statuses)", { statuses: ["active", "trialing"] })
             .orderBy("s.currentPeriodEnd", "DESC")
             .getOne();
+
+        // If no active/trialing found, check for a cancelled subscriber still
+        // within their billing period (manual cancellation with grace access).
+        // We only show this if the user does NOT already have an active/trialing
+        // subscriber on ANY plan — if they do, the cancelled one was replaced
+        // by a plan change and should not trigger a warning.
+        if (!existingSub) {
+            const hasActiveAnywhere = await AppDataSource.getRepository(Subscriber)
+                .createQueryBuilder("s")
+                .where("s.uid = :uid", { uid: payload.uid })
+                .andWhere("s.status IN (:...statuses)", { statuses: ["active", "trialing"] })
+                .getCount();
+
+            if (hasActiveAnywhere === 0) {
+                existingSub = await AppDataSource.getRepository(Subscriber)
+                    .createQueryBuilder("s")
+                    .innerJoinAndSelect("s.subscription", "sub")
+                    .where("s.uid = :uid", { uid: payload.uid })
+                    .andWhere("s.subscriptionId != :subId", { subId: payload.sub_id })
+                    .andWhere("s.status = 'cancelled'")
+                    .andWhere("s.currentPeriodEnd > :now", { now })
+                    .orderBy("s.currentPeriodEnd", "DESC")
+                    .getOne();
+            }
+        }
 
         if (existingSub) {
             existingSubscription = {
