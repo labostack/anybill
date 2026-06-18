@@ -403,25 +403,42 @@ export function SecureCheckout() {
               <Show when={info().existingSubscription}>
                 {(() => {
                   const existing = info().existingSubscription;
-                  const isDowngrade =
-                    existing.amount > info().subscription.amount &&
+                  const sameCurrency =
                     existing.currency === info().subscription.currency;
-                  return isDowngrade ? (
+                  const isUpgrade =
+                    sameCurrency &&
+                    info().subscription.amount > existing.amount;
+
+                  if (!sameCurrency) {
+                    return (
+                      <div class="checkout-warning">
+                        <AlertTriangle size={16} />
+                        <div>
+                          {t("checkout.existingSubCurrencyMismatch", {
+                            name: existing.name,
+                            date: formatDate(existing.currentPeriodEnd),
+                          })}
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  return isUpgrade ? (
+                    <div class="checkout-info">
+                      <ShieldCheck size={16} />
+                      <div>
+                        {t("checkout.existingSubUpgrade", {
+                          name: existing.name,
+                        })}
+                      </div>
+                    </div>
+                  ) : (
                     <div class="checkout-warning">
                       <AlertTriangle size={16} />
                       <div>
                         {t("checkout.existingSubDowngrade", {
                           name: existing.name,
                           date: formatDate(existing.currentPeriodEnd),
-                        })}
-                      </div>
-                    </div>
-                  ) : (
-                    <div class="checkout-info">
-                      <ShieldCheck size={16} />
-                      <div>
-                        {t("checkout.existingSubUpgrade", {
-                          name: existing.name,
                         })}
                       </div>
                     </div>

@@ -157,7 +157,7 @@ import "../services/InvoiceExpirationWorker";
       | "error"
       | "off",
     disableRoutesSummary: process.env.NODE_ENV === "production",
-    logRequest: true,
+    logRequest: process.env.NODE_ENV !== "production",
     requestFields: ["reqId", "method", "url", "duration"],
   },
 })

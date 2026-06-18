@@ -29,7 +29,8 @@
     "per": "per",
     "discountApplied": "{{amount}} off",
     "existingSubUpgrade": "Your remaining days on \"{{name}}\" will be added to the new plan's period.",
-    "existingSubDowngrade": "You have an active plan \"{{name}}\" (until {{date}}). Switching to a cheaper plan will cancel it and any remaining time will be lost."
+    "existingSubDowngrade": "You have an active plan \"{{name}}\" (until {{date}}). Switching to a cheaper plan will cancel it and any remaining time will be lost.",
+    "existingSubCurrencyMismatch": "You have an active plan \"{{name}}\" (until {{date}}) in a different currency. Switching plans will cancel it and any remaining time will be lost."
   },
   "confirm": {
     "verifying": "Verifying payment",
