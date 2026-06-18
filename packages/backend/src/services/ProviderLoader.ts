@@ -104,24 +104,38 @@ function transpileTs(source: string, filename: string): string {
     return result.code;
 }
 
+// ─── .ts Require Extension ──────────────────────────────────────────
+
 /**
- * Load a `.ts` file by transpiling it on-the-fly and evaluating
- * the resulting JS in the context of the original file's directory.
+ * Install a temporary Node `require()` extension for `.ts` files.
  *
- * Module resolution still works for the provider's own dependencies
- * (e.g. `stripe`, `axios`), while `@anybill/sdk` is intercepted by
- * the SDK hook installed during loading.
+ * When a provider file does `require('./lib/freekassa-base')`, Node
+ * normally cannot resolve `.ts` files. This hook registers a
+ * `require.extensions['.ts']` handler that transpiles the TypeScript
+ * source on-the-fly via esbuild, exactly like the top-level provider
+ * files.
+ *
+ * @returns A cleanup function that restores the original `.ts` handler.
  */
-function requireTs(filePath: string): any {
-    const source = readFileSync(filePath, "utf-8");
-    const js = transpileTs(source, filePath);
+function installTsExtension(): () => void {
+    // Use Module._extensions directly — it's the same object as the
+    // deprecated `require.extensions` but without the TS deprecation warning.
+    const extensions = (Module as any)._extensions as Record<string, Function>;
+    const originalHandler = extensions[".ts"];
 
-    const m = new Module(filePath, module);
-    m.filename = filePath;
-    (m as any).paths = (Module as any)._nodeModulePaths(dirname(filePath));
-    (m as any)._compile(js, filePath);
+    extensions[".ts"] = (m: any, filename: string) => {
+        const source = readFileSync(filename, "utf-8");
+        const js = transpileTs(source, filename);
+        m._compile(js, filename);
+    };
 
-    return m.exports;
+    return () => {
+        if (originalHandler) {
+            extensions[".ts"] = originalHandler;
+        } else {
+            delete extensions[".ts"];
+        }
+    };
 }
 
 // ─── Service ────────────────────────────────────────────────────────
@@ -154,22 +168,22 @@ export class ProviderLoader {
             (f) => (f.endsWith(".ts") || f.endsWith(".js")) && !f.endsWith(".d.ts"),
         );
 
-        // Install SDK hook so providers can `import ... from "@anybill/sdk"`
-        // without having the package in their own node_modules.
-        const unhook = installSdkHook();
+        // Install hooks:
+        // 1. SDK hook — providers can `import ... from "@anybill/sdk"`
+        //    without having the package in their own node_modules.
+        // 2. TS extension — providers can import other `.ts` files
+        //    within the providers directory (e.g. `./lib/freekassa-base`).
+        const unhookSdk = installSdkHook();
+        const unhookTs = installTsExtension();
 
         try {
             for (const file of files) {
                 try {
                     const fullPath = join(resolved, file);
 
-                    let mod: any;
-                    if (file.endsWith(".ts")) {
-                        mod = requireTs(fullPath);
-                    } else {
-                        delete require.cache[require.resolve(fullPath)];
-                        mod = require(fullPath);
-                    }
+                    // Clear cached version to pick up changes on reload.
+                    try { delete require.cache[require.resolve(fullPath)]; } catch { /* not cached */ }
+                    const mod = require(fullPath);
 
                     const exported = mod.default ?? mod;
 
@@ -185,7 +199,8 @@ export class ProviderLoader {
                 }
             }
         } finally {
-            unhook();
+            unhookTs();
+            unhookSdk();
         }
 
         this.loaded = true;
