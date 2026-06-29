@@ -49,10 +49,6 @@ export class InvoiceExpirationWorker implements OnInit, OnDestroy {
     ) {}
 
     async $onInit(): Promise<void> {
-        // ── Run immediately on startup ──────────────────────────────
-        await this.processExpiredInvoices();
-        await this.runSubscriptionChecks();
-
         // ── Schedule recurring cron jobs ────────────────────────────
         this.invoiceTask = cron.schedule(INVOICE_CRON, () => {
             this.processExpiredInvoices();
@@ -62,14 +58,45 @@ export class InvoiceExpirationWorker implements OnInit, OnDestroy {
             this.runSubscriptionChecks();
         });
 
+        // ── Run immediately once DB is ready ────────────────────────
+        // DataSource initializes in $afterInit (after $onInit), so we
+        // defer the first execution until it's available.
+        this.runOnceWhenReady();
+
         this.logger.info(
-            `Workers started — invoices: "${INVOICE_CRON}", subscriptions: "${SUBSCRIPTION_CRON}" (ran immediately on startup)`,
+            `Workers started — invoices: "${INVOICE_CRON}", subscriptions: "${SUBSCRIPTION_CRON}"`,
         );
     }
 
     $onDestroy(): void {
         this.invoiceTask?.stop();
         this.subscriptionTask?.stop();
+    }
+
+    /**
+     * Wait for TypeORM DataSource to become initialized, then run
+     * all expiration checks once. Non-blocking — fires and forgets.
+     */
+    private runOnceWhenReady(): void {
+        const MAX_WAIT_MS = 30_000;
+        const POLL_MS = 500;
+        let elapsed = 0;
+
+        const timer = setInterval(async () => {
+            if (AppDataSource.isInitialized) {
+                clearInterval(timer);
+                this.logger.info("Database ready — running initial expiration checks");
+                await this.processExpiredInvoices();
+                await this.runSubscriptionChecks();
+                return;
+            }
+
+            elapsed += POLL_MS;
+            if (elapsed >= MAX_WAIT_MS) {
+                clearInterval(timer);
+                this.logger.error("Database did not initialize within 30s — skipping initial expiration run");
+            }
+        }, POLL_MS);
     }
 
     // ─── Aggregate runners ──────────────────────────────────────
