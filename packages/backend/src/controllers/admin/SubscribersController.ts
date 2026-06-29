@@ -262,6 +262,10 @@ export class SubscribersController {
     async refund(@PathParams("id") id: string) {
         const sub = await this.repo().findOneBy({ id });
         if (!sub) throw new AppError(404, ErrorCode.SUBSCRIBER_NOT_FOUND, "Subscriber not found");
+        // NOTE: Intentionally checks only status, not currentPeriodEnd.
+        // Admin refund is an override action — if an admin wants to refund a
+        // subscriber whose period has technically ended but is still marked
+        // "active" (between worker polls), that's a valid admin use case.
         if (sub.status !== "active") {
             throw new AppError(400, ErrorCode.BAD_REQUEST, "Only active subscribers can be refunded");
         }

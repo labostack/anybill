@@ -155,7 +155,11 @@ export class PortalController {
                 .where("m.uid = :uid", { uid })
                 .andWhere("m.status = :memberStatus", { memberStatus: "active" })
                 .andWhere(
-                    "(o.status IN (:...ownerStatuses) OR (o.status = 'cancelled' AND o.currentPeriodEnd > :now))",
+                    "(" +
+                        "(o.status IN (:...ownerStatuses) AND (o.currentPeriodEnd IS NULL OR o.currentPeriodEnd > :now))" +
+                        " OR " +
+                        "(o.status = 'cancelled' AND o.currentPeriodEnd > :now)" +
+                    ")",
                     { ownerStatuses: ["active", "trialing"], now: new Date() },
                 )
                 .getOne();
@@ -327,7 +331,12 @@ export class PortalController {
         const subscriber = await this.loadSubscriber(subscriberId, uid);
 
         if (subscriber.status === "active") {
-            throw new AppError(400, ErrorCode.SUBSCRIPTION_ALREADY_ACTIVE, "Subscription is already active");
+            // Allow renewal if the billing period has already ended (subscriber is
+            // effectively expired but the worker hasn't transitioned status yet).
+            const periodStillValid = !subscriber.currentPeriodEnd || subscriber.currentPeriodEnd > new Date();
+            if (periodStillValid) {
+                throw new AppError(400, ErrorCode.SUBSCRIPTION_ALREADY_ACTIVE, "Subscription is already active");
+            }
         }
 
         if (subscriber.status === "trialing") {

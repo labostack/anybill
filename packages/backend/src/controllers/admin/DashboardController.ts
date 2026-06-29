@@ -64,7 +64,11 @@ export class DashboardController {
         }
 
         const totalSubscribers = await subscriberRepo.count();
-        const activeSubscribers = await subscriberRepo.countBy({ status: "active" });
+        const activeSubscribers = await subscriberRepo
+            .createQueryBuilder("s")
+            .where("s.status = :status", { status: "active" })
+            .andWhere("(s.currentPeriodEnd IS NULL OR s.currentPeriodEnd > :now)", { now: new Date() })
+            .getCount();
 
         return {
             chart: Array.from(daily.entries())

@@ -10,7 +10,7 @@
 import { Controller, Get, Post, Put, Delete, BodyParams, PathParams, UseBefore } from "@tsed/common";
 import { BadRequest, NotFound } from "@tsed/exceptions";
 import { Tags, Summary, Description, Returns } from "@tsed/schema";
-import { In } from "typeorm";
+
 import { AdminGuard } from "../../core/AdminGuard";
 import { AppDataSource } from "../../core/datasource";
 import { Subscription } from "../../entities/Subscription";
@@ -41,6 +41,7 @@ export class SubscriptionsController {
             .select("s.subscriptionId", "subscriptionId")
             .addSelect("COUNT(*)", "count")
             .where("s.status IN (:...statuses)", { statuses: ["active", "trialing"] })
+            .andWhere("(s.currentPeriodEnd IS NULL OR s.currentPeriodEnd > :now)", { now: new Date() })
             .groupBy("s.subscriptionId")
             .getRawMany();
 
@@ -167,9 +168,13 @@ export class SubscriptionsController {
         const subscriberRepo = AppDataSource.getRepository(Subscriber);
         const invoiceRepo = AppDataSource.getRepository(Invoice);
 
-        const activeCount = await subscriberRepo.count({
-            where: { subscriptionId: id, status: In(["active", "trialing"]) },
-        });
+        const now = new Date();
+        const activeCount = await subscriberRepo
+            .createQueryBuilder("s")
+            .where("s.subscriptionId = :id", { id })
+            .andWhere("s.status IN (:...statuses)", { statuses: ["active", "trialing"] })
+            .andWhere("(s.currentPeriodEnd IS NULL OR s.currentPeriodEnd > :now)", { now })
+            .getCount();
         if (activeCount > 0) {
             throw new AppError(400, ErrorCode.BAD_REQUEST,
                 "Cannot delete subscription. There are active subscribers linked to it.",

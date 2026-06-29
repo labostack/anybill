@@ -110,6 +110,7 @@ export class BillingService implements OnInit {
                     .where("s.uid = :uid", { uid })
                     .andWhere("s.subscriptionId != :subscriptionId", { subscriptionId })
                     .andWhere("s.status IN (:...statuses)", { statuses: ["active", "trialing"] })
+                    .andWhere("(s.currentPeriodEnd IS NULL OR s.currentPeriodEnd > :now)", { now: new Date() })
                     .orderBy("s.currentPeriodEnd", "DESC")
                     .getOne();
 
@@ -364,7 +365,11 @@ export class BillingService implements OnInit {
                 throw new Conflict("Trial already used for this plan");
             }
             if (existing.status === "active") {
-                throw new Conflict("User already has an active subscription to this plan");
+                // Allow if the billing period has already ended (phantom active).
+                const periodStillValid = !existing.currentPeriodEnd || existing.currentPeriodEnd > new Date();
+                if (periodStillValid) {
+                    throw new Conflict("User already has an active subscription to this plan");
+                }
             }
         }
 
@@ -448,7 +453,11 @@ export class BillingService implements OnInit {
         // 2. Check for existing active subscriber.
         const existing = await subscriberRepo.findOneBy({ uid, subscriptionId });
         if (existing && (existing.status === "active" || existing.status === "trialing")) {
-            throw new Conflict("User already has an active subscription to this plan");
+            // Allow if the billing period has already ended (phantom active/trialing).
+            const periodStillValid = !existing.currentPeriodEnd || existing.currentPeriodEnd > new Date();
+            if (periodStillValid) {
+                throw new Conflict("User already has an active subscription to this plan");
+            }
         }
 
         // 3. Compute period.

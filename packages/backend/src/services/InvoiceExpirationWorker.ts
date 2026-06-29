@@ -51,6 +51,7 @@ export class InvoiceExpirationWorker implements OnInit, OnDestroy {
         // Slow loop: subscription/trial/invite expiration (hours granularity).
         this.subscriptionTimer = setInterval(async () => {
             await this.processExpiredTrials();
+            await this.processExpiredActiveManualSubscriptions();
             await this.processExpiredCancelledSubscriptions();
             await this.squads.expireStaleInvites();
         }, SUBSCRIPTION_POLL_MS);
@@ -156,6 +157,59 @@ export class InvoiceExpirationWorker implements OnInit, OnDestroy {
             this.logger.info(`Auto-expired ${expiredTrials.length} trialing subscriber(s)`);
         } catch (err: any) {
             this.logger.error(`Trial expiration check error: ${err.message}`);
+        }
+    }
+
+    /**
+     * Expire active subscribers with manual renewal whose billing period has ended.
+     *
+     * When a subscriber has `renewalMode = "manual"` (i.e. the payment provider
+     * does NOT handle automatic recurring billing), AnyBill must detect when
+     * their `currentPeriodEnd` has passed and transition them to `expired`.
+     *
+     * This prevents the bug where manual-renewal subscribers stay in `active`
+     * status indefinitely after their billing period ends.
+     *
+     * Note: `provider_managed` subscribers are NOT touched here — their provider
+     * is expected to send renewal webhooks or failure notifications.
+     */
+    private async processExpiredActiveManualSubscriptions(): Promise<void> {
+        try {
+            const subscriberRepo = AppDataSource.getRepository(Subscriber);
+            const now = new Date();
+
+            const expiredActive = await subscriberRepo.find({
+                where: {
+                    status: "active",
+                    renewalMode: "manual",
+                    currentPeriodEnd: LessThanOrEqual(now),
+                },
+            });
+
+            if (expiredActive.length === 0) return;
+
+            for (const subscriber of expiredActive) {
+                // Skip subscribers with null currentPeriodEnd (one-time / manual management).
+                if (!subscriber.currentPeriodEnd) continue;
+
+                subscriber.status = "expired";
+                await subscriberRepo.save(subscriber);
+
+                await this.outgoingWebhooks.dispatch("subscription.expired", {
+                    subscriberId: subscriber.id,
+                    subscriptionId: subscriber.subscriptionId,
+                    uid: subscriber.uid,
+                    expiredAt: subscriber.currentPeriodEnd.toISOString(),
+                });
+
+                this.logger.info(
+                    `Active manual subscription expired for subscriber ${subscriber.id} (uid: ${subscriber.uid}, periodEnd: ${subscriber.currentPeriodEnd.toISOString()})`,
+                );
+            }
+
+            this.logger.info(`Transitioned ${expiredActive.length} active manual → expired subscriber(s)`);
+        } catch (err: any) {
+            this.logger.error(`Active manual subscription expiration check error: ${err.message}`);
         }
     }
 

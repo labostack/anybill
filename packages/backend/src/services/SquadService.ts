@@ -51,6 +51,11 @@ export class SquadService {
         if (subscriber.status !== "active" && subscriber.status !== "trialing") {
             throw new BadRequest("Subscriber is not active or trialing");
         }
+        // Guard against active/trialing subscribers whose billing period has already ended
+        // (worker hasn't transitioned them to expired yet).
+        if (subscriber.currentPeriodEnd && subscriber.currentPeriodEnd <= new Date()) {
+            throw new BadRequest("Subscriber billing period has expired");
+        }
 
         const subscription = subscriber.subscription;
         if (!subscription.squadEnabled) {
@@ -320,12 +325,24 @@ export class SquadService {
             relations: ["subscription"],
         });
         if (directSub) {
-            return {
-                hasAccess: true,
-                accessType: "direct",
-                subscriber: directSub,
-                subscription: directSub.subscription,
-            };
+            // Guard: if the billing period has ended, deny access and lazy-expire.
+            // This catches the window between worker polls where the subscriber
+            // is still marked "active" but their currentPeriodEnd has passed.
+            if (directSub.currentPeriodEnd && directSub.currentPeriodEnd <= now) {
+                directSub.status = "expired";
+                await subscriberRepo.save(directSub);
+                this.logger.info(
+                    `Lazy-expired subscriber ${directSub.id} (uid: ${directSub.uid}) — period ended ${directSub.currentPeriodEnd.toISOString()}`,
+                );
+                // Fall through to cancelled-but-within-period check and squad check below.
+            } else {
+                return {
+                    hasAccess: true,
+                    accessType: "direct",
+                    subscriber: directSub,
+                    subscription: directSub.subscription,
+                };
+            }
         }
 
         // Check cancelled-but-within-period subscribers separately
@@ -355,7 +372,11 @@ export class SquadService {
             .where("m.uid = :uid", { uid })
             .andWhere("m.status = :memberStatus", { memberStatus: "active" })
             .andWhere(
-                "(o.status IN (:...activeStatuses) OR (o.status = 'cancelled' AND o.currentPeriodEnd > :now))",
+                "(" +
+                    "(o.status IN (:...activeStatuses) AND (o.currentPeriodEnd IS NULL OR o.currentPeriodEnd > :now))" +
+                    " OR " +
+                    "(o.status = 'cancelled' AND o.currentPeriodEnd > :now)" +
+                ")",
                 { activeStatuses: ["active", "trialing"], now },
             );
 

@@ -153,6 +153,7 @@ export class CheckoutController {
             .where("s.uid = :uid", { uid: payload.uid })
             .andWhere("s.subscriptionId != :subId", { subId: payload.sub_id })
             .andWhere("s.status IN (:...statuses)", { statuses: ["active", "trialing"] })
+            .andWhere("(s.currentPeriodEnd IS NULL OR s.currentPeriodEnd > :now)", { now })
             .orderBy("s.currentPeriodEnd", "DESC")
             .getOne();
 
@@ -166,6 +167,7 @@ export class CheckoutController {
                 .createQueryBuilder("s")
                 .where("s.uid = :uid", { uid: payload.uid })
                 .andWhere("s.status IN (:...statuses)", { statuses: ["active", "trialing"] })
+                .andWhere("(s.currentPeriodEnd IS NULL OR s.currentPeriodEnd > :now)", { now })
                 .getCount();
 
             if (hasActiveAnywhere === 0) {
