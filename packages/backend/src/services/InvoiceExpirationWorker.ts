@@ -1,10 +1,13 @@
 /**
  * @module services/InvoiceExpirationWorker
  *
- * Background worker that periodically cancels stale pending invoices.
+ * Background worker that periodically processes expired invoices, trials,
+ * and subscriptions using node-cron.
  *
  * Behaviour:
- * - Polls on a configurable interval (`INVOICE_EXPIRE_POLL_MS`, default 60 s).
+ * - Runs immediately on startup, then on cron schedule.
+ * - Invoice auto-expiration: every 5 minutes (configurable via `INVOICE_CRON`).
+ * - Subscription/trial/invite expiration: every 30 minutes (configurable via `SUBSCRIPTION_CRON`).
  * - Reads the {@link Account} singleton for the `invoiceAutoExpire` toggle
  *   and `invoiceExpireTtlMinutes` TTL.
  * - When enabled, finds all pending invoices older than the TTL and:
@@ -15,7 +18,8 @@
 
 import { Injectable, OnInit, OnDestroy, Inject } from "@tsed/di";
 import { Logger } from "@tsed/logger";
-import { LessThanOrEqual, In } from "typeorm";
+import cron, { ScheduledTask } from "node-cron";
+import { LessThanOrEqual } from "typeorm";
 import { AppDataSource } from "../core/datasource";
 import { Account } from "../entities/Account";
 import { Invoice } from "../entities/Invoice";
@@ -24,16 +28,16 @@ import { BillingService } from "./BillingService";
 import { OutgoingWebhookService } from "./OutgoingWebhookService";
 import { SquadService } from "./SquadService";
 
-/** Invoice auto-expiration poll interval (default 5 min — short enough for any practical TTL). */
-const INVOICE_POLL_MS = Number(process.env.INVOICE_EXPIRE_POLL_MS) || 300_000;
+/** Cron expression for invoice auto-expiration (default: every 5 minutes). */
+const INVOICE_CRON = process.env.INVOICE_CRON || "*/5 * * * *";
 
-/** Subscription/trial/invite expiration poll interval (default 30 min). */
-const SUBSCRIPTION_POLL_MS = Number(process.env.SUBSCRIPTION_EXPIRE_POLL_MS) || 1_800_000;
+/** Cron expression for subscription/trial/invite expiration (default: every 30 minutes). */
+const SUBSCRIPTION_CRON = process.env.SUBSCRIPTION_CRON || "*/30 * * * *";
 
 @Injectable()
 export class InvoiceExpirationWorker implements OnInit, OnDestroy {
-    private invoiceTimer?: ReturnType<typeof setInterval>;
-    private subscriptionTimer?: ReturnType<typeof setInterval>;
+    private invoiceTask?: ScheduledTask;
+    private subscriptionTask?: ScheduledTask;
 
     @Inject()
     logger!: Logger;
@@ -45,25 +49,36 @@ export class InvoiceExpirationWorker implements OnInit, OnDestroy {
     ) {}
 
     async $onInit(): Promise<void> {
-        // Fast loop: invoice auto-expiration (minutes granularity).
-        this.invoiceTimer = setInterval(() => this.processExpiredInvoices(), INVOICE_POLL_MS);
+        // ── Run immediately on startup ──────────────────────────────
+        await this.processExpiredInvoices();
+        await this.runSubscriptionChecks();
 
-        // Slow loop: subscription/trial/invite expiration (hours granularity).
-        this.subscriptionTimer = setInterval(async () => {
-            await this.processExpiredTrials();
-            await this.processExpiredActiveManualSubscriptions();
-            await this.processExpiredCancelledSubscriptions();
-            await this.squads.expireStaleInvites();
-        }, SUBSCRIPTION_POLL_MS);
+        // ── Schedule recurring cron jobs ────────────────────────────
+        this.invoiceTask = cron.schedule(INVOICE_CRON, () => {
+            this.processExpiredInvoices();
+        });
+
+        this.subscriptionTask = cron.schedule(SUBSCRIPTION_CRON, () => {
+            this.runSubscriptionChecks();
+        });
 
         this.logger.info(
-            `Workers started — invoices: every ${INVOICE_POLL_MS / 60_000}min, subscriptions: every ${SUBSCRIPTION_POLL_MS / 60_000}min`,
+            `Workers started — invoices: "${INVOICE_CRON}", subscriptions: "${SUBSCRIPTION_CRON}" (ran immediately on startup)`,
         );
     }
 
     $onDestroy(): void {
-        if (this.invoiceTimer) clearInterval(this.invoiceTimer);
-        if (this.subscriptionTimer) clearInterval(this.subscriptionTimer);
+        this.invoiceTask?.stop();
+        this.subscriptionTask?.stop();
+    }
+
+    // ─── Aggregate runners ──────────────────────────────────────
+
+    private async runSubscriptionChecks(): Promise<void> {
+        await this.processExpiredTrials();
+        await this.processExpiredActiveManualSubscriptions();
+        await this.processExpiredCancelledSubscriptions();
+        await this.squads.expireStaleInvites();
     }
 
     // ─── Core Logic ─────────────────────────────────────────────

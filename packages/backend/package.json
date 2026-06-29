@@ -28,6 +28,7 @@
         "express": "^4.21.0",
         "helmet": "^8.1.0",
         "jsonwebtoken": "^9.0.2",
+        "node-cron": "^4.5.0",
         "typeorm": "^0.3.20"
     },
     "devDependencies": {

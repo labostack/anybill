@@ -96,6 +96,9 @@ importers:
       jsonwebtoken:
         specifier: ^9.0.2
         version: 9.0.3
+      node-cron:
+        specifier: ^4.5.0
+        version: 4.5.0
       typeorm:
         specifier: ^0.3.20
         version: 0.3.30(better-sqlite3@11.10.0)(ts-node@10.9.2(@types/node@22.19.19)(typescript@5.9.3))
@@ -1633,6 +1636,10 @@ packages:
   node-abi@3.92.0:
     resolution: {integrity: sha512-KdHvFWZjEKDf0cakgFjebl371GPsISX2oZHcuyKqM7DtogIsHrqKeLTo8wBHxaXRAQlY2PsPlZmfo+9ZCxEREQ==}
     engines: {node: '>=10'}
+
+  node-cron@4.5.0:
+    resolution: {integrity: sha512-4Trh+kjvbXokyJkwQumvD5YAgeJfgHLR/sKyu71uSmxfCR5QMO1hldpvmFZOICN5pLgNY+J5Y8+ar3XKo5/4tQ==}
+    engines: {node: '>=20'}
 
   node-releases@2.0.44:
     resolution: {integrity: sha512-5WUyunoPMsvvEhS8AxHtRzP+oA8UCkJ7YRxatWKjngndhDGLiqEVAQKWjFAiAiuL8zMRGzGSJxFnLetoa43qGQ==}
@@ -3653,6 +3660,8 @@ snapshots:
   node-abi@3.92.0:
     dependencies:
       semver: 7.8.0
+
+  node-cron@4.5.0: {}
 
   node-releases@2.0.44: {}
 
