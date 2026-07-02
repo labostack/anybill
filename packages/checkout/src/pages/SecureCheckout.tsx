@@ -1,6 +1,3 @@
-/** SecureCheckout page — token-based checkout. Resolves a secure link token
- *  via /api/checkout/resolve/:token, then renders the same two-column
- *  layout as the regular Checkout page. */
 import { createSignal, onMount, For, Show } from "solid-js";
 import { useParams } from "@solidjs/router";
 import {
@@ -9,6 +6,8 @@ import {
   ShieldCheck,
   AlertTriangle,
   Ticket,
+  Info,
+  X,
 } from "lucide-solid";
 import { useI18n } from "../locales/i18n";
 import { isEmbedded } from "../App";
@@ -18,7 +17,6 @@ const API = "/api/checkout";
 /**
  * Resolve a provider displayName that may be a plain string
  * or a locale map `{ en: "...", ru: "..." }`.
- * Priority: exact locale → "en" fallback → first value → empty string.
  */
 function resolveDisplayName(
   name: string | Record<string, string>,
@@ -47,7 +45,6 @@ export function SecureCheckout() {
   const [showCouponInput, setShowCouponInput] = createSignal(false);
 
   onMount(async () => {
-    // Capture referrer for "back" button
     if (
       document.referrer &&
       new URL(document.referrer).origin !== window.location.origin
@@ -61,24 +58,19 @@ export function SecureCheckout() {
         throw new Error(data?.message || t("common.invalidLink"));
       }
       const data = await res.json();
-
-      // resolve returns subscription, providers, and checkoutConfig
       setInfo(data);
       if (data.providers.length === 1) {
         const solo = data.providers[0];
         setSelectedProvider(solo.id);
-        // Auto-select variant if provider has exactly one.
         if (solo.variants?.length === 1) {
           setSelectedVariant(solo.variants[0].id);
         }
       }
-
-      // Pre-applied coupon from resolve
       if (data.coupon) {
         setCouponApplied(data.coupon);
       }
-    } catch (err: any) {
-      setTokenError(err.message);
+    } catch (err: unknown) {
+      setTokenError((err as Error).message);
     }
   });
 
@@ -107,8 +99,8 @@ export function SecureCheckout() {
         setCouponApplied(data);
         setCouponError("");
       }
-    } catch (err: any) {
-      setCouponError(err.message);
+    } catch (err: unknown) {
+      setCouponError((err as Error).message);
     } finally {
       setApplyingCoupon(false);
     }
@@ -148,12 +140,6 @@ export function SecureCheckout() {
         throw new Error(translated);
       }
       const { paymentUrl } = await res.json();
-
-      // Redirect to the provider's payment gateway.
-      // Must break out of iframe — providers block iframe embedding (CSRF).
-      // 1. postMessage: parent navigates itself (works when origins are both HTTPS)
-      // 2. window.top: direct top-level nav (works in Chrome, new tab in Safari)
-      // 3. window.location: last resort (in-frame, may hit provider CSRF)
       try {
         if (window.parent !== window) {
           window.parent.postMessage(
@@ -169,8 +155,8 @@ export function SecureCheckout() {
         } catch {}
       }
       window.location.href = paymentUrl;
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      setError((err as Error).message);
       setLoading(false);
     }
   };
@@ -205,108 +191,109 @@ export function SecureCheckout() {
           </div>
         }
       >
-        <div class="checkout-layout">
-          {/* ─── Left Column: Product Summary ─── */}
-          <div class="checkout-left">
-            <div class="checkout-left-inner">
-              {/* Back to referrer — hidden in embed mode */}
-              <Show when={referrerUrl() && !isEmbedded}>
-                <a class="checkout-back" href={referrerUrl()}>
-                  <ArrowLeft size={16} />
-                  <span>{t("common.back")}</span>
-                </a>
+        <div class={`co-layout${isEmbedded ? " co-embedded" : ""}`}>
+          {/* ═══ LEFT PANEL: Plan + Summary ═══ */}
+          <div class="co-left">
+            <div class="co-left-inner">
+              {/* Brand */}
+              <Show when={!isEmbedded}>
+                <div class="co-brand">
+                  <Show when={referrerUrl()}>
+                    <a class="co-back" href={referrerUrl()}>
+                      <ArrowLeft size={15} />
+                    </a>
+                  </Show>
+                  <Show when={info().checkoutConfig?.logoUrl}>
+                    <img
+                      class="co-brand-logo"
+                      src={info().checkoutConfig.logoUrl}
+                      alt=""
+                    />
+                  </Show>
+                  <span class="co-brand-name">
+                    {info().checkoutConfig?.brandName || t("common.checkout")}
+                  </span>
+                </div>
               </Show>
 
-              {/* Brand */}
-              <div class="checkout-brand">
-                <Show when={info().checkoutConfig?.logoUrl}>
-                  <div class="checkout-brand-icon">
-                    <img src={info().checkoutConfig.logoUrl} alt="Logo" />
-                  </div>
-                </Show>
-                <span class="checkout-brand-name">
-                  {info().checkoutConfig?.brandName || t("common.checkout")}
-                </span>
-              </div>
-
-              {/* Product */}
-              <div class="product-name">{info().subscription.name}</div>
-              <div class="product-price">
-                <Show
-                  when={couponApplied()}
-                  fallback={formatPrice(
-                    info().subscription.amount,
-                    info().subscription.currency,
-                  )}
-                >
-                  <span class="price-original">
-                    {formatPrice(
-                      info().subscription.amount,
-                      info().subscription.currency,
-                    )}
-                  </span>{" "}
-                  <span class="price-discounted">
-                    {formatPrice(
-                      effectiveAmount(),
-                      info().subscription.currency,
+              {/* Plan + Price */}
+              <div class="co-plan">
+                <div class="co-plan-name">{info().subscription.name}</div>
+                <div class="co-plan-price-row">
+                  <Show
+                    when={couponApplied()}
+                    fallback={
+                      <span class="co-plan-price">
+                        {formatPrice(
+                          info().subscription.amount,
+                          info().subscription.currency,
+                        )}
+                      </span>
+                    }
+                  >
+                    <span class="co-plan-price-old">
+                      {formatPrice(
+                        info().subscription.amount,
+                        info().subscription.currency,
+                      )}
+                    </span>
+                    <span class="co-plan-price co-plan-price-discounted">
+                      {formatPrice(
+                        effectiveAmount(),
+                        info().subscription.currency,
+                      )}
+                    </span>
+                  </Show>
+                  <span class="co-plan-interval">
+                    {intervalLabel(
+                      info().subscription.interval,
+                      info().subscription.intervalCount,
                     )}
                   </span>
-                </Show>
-              </div>
-              <div class="product-interval">
-                {intervalLabel(
-                  info().subscription.interval,
-                  info().subscription.intervalCount,
-                )}
+                </div>
               </div>
 
               {/* Order Summary */}
-              <div class="order-summary">
-                {/* Item row */}
-                <div class="order-row">
-                  <div>
-                    <div class="order-item-name">
+              <div class="co-summary">
+                <div class="co-summary-row">
+                  <div class="co-summary-item">
+                    <span class="co-summary-name">
                       {info().subscription.name}
-                    </div>
+                    </span>
                     <Show when={info().subscription.description}>
-                      <div class="order-item-desc">
+                      <span class="co-summary-desc">
                         {info().subscription.description}
-                      </div>
+                      </span>
                     </Show>
                   </div>
-                  <div class="order-item-price">
+                  <span class="co-summary-value">
                     {formatPrice(
                       info().subscription.amount,
                       info().subscription.currency,
                     )}
-                  </div>
+                  </span>
                 </div>
 
-                {/* Discount row — only when coupon applied */}
+                {/* Discount row */}
                 <Show when={couponApplied()}>
-                  <div class="order-row order-discount-row">
-                    <div>
-                      <div class="order-item-name order-discount-label">
-                        {t("checkout.promoApplied")}{" "}
-                        {couponApplied().coupon?.code || couponApplied().code}
-                      </div>
-                    </div>
-                    <div class="order-item-price order-discount-value">
-                      −
-                      {formatPrice(
+                  <div class="co-summary-row co-summary-discount">
+                    <span class="co-summary-name">
+                      {t("checkout.promoApplied")}{" "}
+                      {couponApplied().coupon?.code || couponApplied().code}
+                    </span>
+                    <span class="co-summary-value">
+                      −{formatPrice(
                         couponApplied().discountAmount,
                         info().subscription.currency,
                       )}
-                    </div>
+                    </span>
                   </div>
                 </Show>
 
                 {/* Total */}
-                <div class="order-total">
-                  <span class="order-total-label">
-                    {t("checkout.totalDueToday")}
-                  </span>
-                  <span class="order-total-value">
+                <div class="co-summary-total">
+                  <span>{t("checkout.totalDueToday")}</span>
+                  <span class="co-summary-total-value">
                     {formatPrice(
                       effectiveAmount(),
                       info().subscription.currency,
@@ -315,22 +302,22 @@ export function SecureCheckout() {
                 </div>
               </div>
 
-              {/* Coupon / Promo Code — below order summary */}
+              {/* Coupon */}
               <Show when={!couponApplied()}>
                 <Show when={!showCouponInput()}>
                   <button
-                    class="coupon-toggle"
+                    class="co-coupon-toggle"
                     onClick={() => setShowCouponInput(true)}
                   >
-                    <Ticket size={14} />
+                    <Ticket size={13} />
                     <span>{t("checkout.addPromoCode")}</span>
                   </button>
                 </Show>
                 <Show when={showCouponInput()}>
-                  <div class="coupon-input-wrap">
+                  <div class="co-coupon-row">
                     <input
                       type="text"
-                      class="coupon-input"
+                      class="co-coupon-input"
                       placeholder={t("checkout.promoCodePlaceholder")}
                       value={couponCode()}
                       onInput={(e) =>
@@ -339,27 +326,37 @@ export function SecureCheckout() {
                       onKeyDown={(e) => e.key === "Enter" && applyCoupon()}
                     />
                     <button
-                      class="coupon-apply-btn"
+                      class="co-coupon-apply"
                       onClick={applyCoupon}
                       disabled={!couponCode().trim() || applyingCoupon()}
                     >
                       {applyingCoupon() ? "..." : t("common.apply")}
                     </button>
+                    <button
+                      class="co-coupon-close"
+                      onClick={() => {
+                        setShowCouponInput(false);
+                        setCouponCode("");
+                        setCouponError("");
+                      }}
+                    >
+                      <X size={14} />
+                    </button>
                   </div>
                   <Show when={couponError()}>
-                    <div class="coupon-error">{couponError()}</div>
+                    <div class="co-coupon-error">{couponError()}</div>
                   </Show>
                 </Show>
               </Show>
 
               {/* Applied coupon badge */}
               <Show when={couponApplied()}>
-                <div class="coupon-applied">
-                  <Ticket size={14} />
-                  <span class="coupon-applied-code">
+                <div class="co-coupon-badge">
+                  <Ticket size={13} />
+                  <span class="co-coupon-badge-code">
                     {couponApplied().coupon?.code || couponApplied().code}
                   </span>
-                  <span class="coupon-applied-desc">
+                  <span class="co-coupon-badge-desc">
                     {(() => {
                       const val =
                         couponApplied().coupon?.value || couponApplied().value;
@@ -375,39 +372,40 @@ export function SecureCheckout() {
                     })()}
                   </span>
                   <Show when={!info().coupon}>
-                    <button class="coupon-remove" onClick={removeCoupon}>
+                    <button class="co-coupon-remove" onClick={removeCoupon}>
                       ✕
                     </button>
                   </Show>
                 </div>
               </Show>
 
-              {/* Powered by */}
-              <Show when={!info().checkoutConfig?.hidePoweredBy}>
-                <div class="powered-by">
-                  <Lock size={12} />
-                  {t("common.poweredBy")}{" "}
-                  <a
-                    href="https://github.com/labostack/anybill"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    anybill
-                  </a>
+              {/* Footer — left panel bottom */}
+              <div class="co-footer">
+                <div class="co-secure">
+                  <ShieldCheck size={13} />
+                  <span>{t("checkout.secureInfo")}</span>
                 </div>
-              </Show>
+                <Show when={!info().checkoutConfig?.hidePoweredBy}>
+                  <div class="co-powered">
+                    <Lock size={11} />
+                    {t("common.poweredBy")}{" "}
+                    <a
+                      href="https://github.com/labostack/anybill"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      anybill
+                    </a>
+                  </div>
+                </Show>
+              </div>
             </div>
           </div>
 
-          {/* ─── Right Column: Payment ─── */}
-          <div class="checkout-right">
-            <div class="checkout-right-inner">
-              <div class="payment-section-title">{t("checkout.payWith")}</div>
-
-              <Show when={error()}>
-                <div class="error-msg">{error()}</div>
-              </Show>
-
+          {/* ═══ RIGHT PANEL: Payment ═══ */}
+          <div class="co-right">
+            <div class="co-right-inner">
+              {/* Warning / Info Banner */}
               <Show when={info().existingSubscription}>
                 {(() => {
                   const existing = info().existingSubscription;
@@ -419,46 +417,53 @@ export function SecureCheckout() {
 
                   if (!sameCurrency) {
                     return (
-                      <div class="checkout-warning">
-                        <AlertTriangle size={16} />
-                        <div>
+                      <div class="co-banner co-banner-warn">
+                        <AlertTriangle size={14} />
+                        <span>
                           {t("checkout.existingSubCurrencyMismatch", {
                             name: existing.name,
                             date: formatDate(existing.currentPeriodEnd),
                           })}
-                        </div>
+                        </span>
                       </div>
                     );
                   }
 
                   return isUpgrade ? (
-                    <div class="checkout-info">
-                      <ShieldCheck size={16} />
-                      <div>
+                    <div class="co-banner co-banner-info">
+                      <Info size={14} />
+                      <span>
                         {t("checkout.existingSubUpgrade", {
                           name: existing.name,
                         })}
-                      </div>
+                      </span>
                     </div>
                   ) : (
-                    <div class="checkout-warning">
-                      <AlertTriangle size={16} />
-                      <div>
+                    <div class="co-banner co-banner-warn">
+                      <AlertTriangle size={14} />
+                      <span>
                         {t("checkout.existingSubDowngrade", {
                           name: existing.name,
                           date: formatDate(existing.currentPeriodEnd),
                         })}
-                      </div>
+                      </span>
                     </div>
                   );
                 })()}
               </Show>
 
-              <div class="payment-section-label">
-                {t("checkout.paymentMethod")}
-              </div>
+              {/* Error */}
+              <Show when={error()}>
+                <div class="co-banner co-banner-error">
+                  <AlertTriangle size={14} />
+                  <span>{error()}</span>
+                </div>
+              </Show>
 
-              <div class="provider-list">
+              {/* Payment Method */}
+              <div class="co-section-label">{t("checkout.paymentMethod")}</div>
+
+              <div class="co-providers">
                 <For each={info().providers}>
                   {(provider: {
                     id: string;
@@ -471,14 +476,12 @@ export function SecureCheckout() {
                     }[];
                   }) => {
                     const hasVariants = () => (provider.variants?.length ?? 0) > 0;
-                    const isExpanded = () => selectedProvider() === provider.id;
+                    const isSelected = () => selectedProvider() === provider.id;
 
                     return (
                       <>
-                        <label
-                          class={`provider-option ${
-                            selectedProvider() === provider.id ? "selected" : ""
-                          } ${hasVariants() ? "has-variants" : ""}`}
+                        <button
+                          class={`co-provider${isSelected() ? " co-provider-active" : ""}`}
                           onClick={() => {
                             setSelectedProvider(provider.id);
                             if (!hasVariants()) {
@@ -490,65 +493,59 @@ export function SecureCheckout() {
                             }
                           }}
                         >
-                          <input
-                            type="radio"
-                            name="provider"
-                            checked={selectedProvider() === provider.id}
-                          />
-                          <div class="provider-radio" />
-                          <span class="provider-name">
+                          <div class="co-radio">
+                            <Show when={isSelected()}>
+                              <div class="co-radio-dot" />
+                            </Show>
+                          </div>
+                          <span class="co-provider-name">
                             {resolveDisplayName(provider.displayName, locale())}
                           </span>
-                        </label>
+                        </button>
 
-                        {/* ── Variant sub-options ── */}
-                        <Show when={hasVariants() && isExpanded()}>
-                          <div class="variant-list">
-                            <For each={provider.variants}>
-                              {(variant) => (
-                                <label
-                                  class={`variant-option ${
-                                    selectedVariant() === variant.id
-                                      ? "selected"
-                                      : ""
-                                  }`}
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setSelectedVariant(variant.id);
-                                  }}
+                        {/* Variant sub-options */}
+                        <Show when={hasVariants() && isSelected()}>
+                          <For each={provider.variants}>
+                            {(variant) => (
+                              <button
+                                class={`co-variant${selectedVariant() === variant.id ? " co-variant-active" : ""}`}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setSelectedVariant(variant.id);
+                                }}
+                              >
+                                <div class="co-radio co-radio-sm">
+                                  <Show when={selectedVariant() === variant.id}>
+                                    <div class="co-radio-dot" />
+                                  </Show>
+                                </div>
+                                <span class="co-variant-name">
+                                  {resolveDisplayName(
+                                    variant.displayName,
+                                    locale(),
+                                  )}
+                                </span>
+                                <Show
+                                  when={
+                                    variant.convertedAmount != null &&
+                                    variant.currency.toLowerCase() !==
+                                      info()
+                                        .subscription.currency.toLowerCase()
+                                  }
                                 >
-                                  <input
-                                    type="radio"
-                                    name="variant"
-                                    checked={selectedVariant() === variant.id}
-                                  />
-                                  <div class="variant-radio" />
-                                  <span class="variant-name">
-                                    {resolveDisplayName(
-                                      variant.displayName,
-                                      locale(),
+                                  <span class="co-variant-price">
+                                    ≈{" "}
+                                    {formatPrice(
+                                      couponApplied()
+                                        ? Math.round(variant.convertedAmount! * effectiveAmount() / info().subscription.amount)
+                                        : variant.convertedAmount!,
+                                      variant.currency,
                                     )}
                                   </span>
-                                  <Show
-                                    when={
-                                      variant.convertedAmount != null &&
-                                      variant.currency.toLowerCase() !==
-                                        info()
-                                          .subscription.currency.toLowerCase()
-                                    }
-                                  >
-                                    <span class="variant-price">
-                                      ≈{" "}
-                                      {formatPrice(
-                                        variant.convertedAmount!,
-                                        variant.currency,
-                                      )}
-                                    </span>
-                                  </Show>
-                                </label>
-                              )}
-                            </For>
-                          </div>
+                                </Show>
+                              </button>
+                            )}
+                          </For>
                         </Show>
                       </>
                     );
@@ -556,8 +553,9 @@ export function SecureCheckout() {
                 </For>
               </div>
 
+              {/* Pay Button */}
               <button
-                class="pay-btn"
+                class="co-pay"
                 disabled={
                   !selectedProvider() ||
                   loading() ||
@@ -580,11 +578,6 @@ export function SecureCheckout() {
                       ),
                     })}
               </button>
-
-              <div class="security-info">
-                <ShieldCheck size={14} />
-                <span>{t("checkout.secureInfo")}</span>
-              </div>
             </div>
           </div>
         </div>
