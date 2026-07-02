@@ -86,7 +86,6 @@ body {
 
 .co-layout.co-embedded {
     min-height: auto;
-    flex-direction: column;
 }
 
 /* ─── Left Panel (plan + summary) ──────────────────── */
@@ -143,11 +142,12 @@ body {
     to { opacity: 1; transform: translateY(0); }
 }
 
-/* ─── Embed: single column ─────────────────────────── */
+/* ─── Embed overrides ──────────────────────────────── */
 
 .co-embedded .co-left,
 .co-embedded .co-right {
-    padding: 24px 16px;
+    background: transparent;
+    padding: 24px 20px;
 }
 
 .co-embedded .co-left {
@@ -155,7 +155,7 @@ body {
 }
 
 .co-embedded .co-left::after {
-    display: none;
+    /* keep the 1px divider between panels */
 }
 
 .co-embedded .co-left-inner,
@@ -164,8 +164,11 @@ body {
 }
 
 .co-embedded .co-right {
-    justify-content: center;
-    border-top: 1px solid var(--co-border);
+    justify-content: flex-start;
+}
+
+.co-embedded .co-footer {
+    display: none;
 }
 
 /* ─── Brand ────────────────────────────────────────── */
