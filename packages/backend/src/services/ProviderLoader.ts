@@ -109,7 +109,7 @@ function transpileTs(source: string, filename: string): string {
 /**
  * Install a temporary Node `require()` extension for `.ts` files.
  *
- * When a provider file does `require('./lib/freekassa-base')`, Node
+ * When a provider file does `require('./lib/payment-helpers')`, Node
  * normally cannot resolve `.ts` files. This hook registers a
  * `require.extensions['.ts']` handler that transpiles the TypeScript
  * source on-the-fly via esbuild, exactly like the top-level provider
@@ -172,7 +172,7 @@ export class ProviderLoader {
         // 1. SDK hook — providers can `import ... from "@anybill/sdk"`
         //    without having the package in their own node_modules.
         // 2. TS extension — providers can import other `.ts` files
-        //    within the providers directory (e.g. `./lib/freekassa-base`).
+        //    within the providers directory (e.g. `./lib/helper-lib`).
         const unhookSdk = installSdkHook();
         const unhookTs = installTsExtension();
 

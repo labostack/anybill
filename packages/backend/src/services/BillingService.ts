@@ -24,6 +24,7 @@ import { SquadInvite } from "../entities/SquadInvite";
 import { ProviderLoader } from "./ProviderLoader";
 import { OutgoingWebhookService } from "./OutgoingWebhookService";
 import { CouponService } from "./CouponService";
+import { ExchangeRateService } from "./ExchangeRateService";
 
 @Injectable()
 export class BillingService implements OnInit {
@@ -33,6 +34,7 @@ export class BillingService implements OnInit {
         private readonly providerLoader: ProviderLoader,
         private readonly outgoingWebhooks: OutgoingWebhookService,
         private readonly couponService: CouponService,
+        private readonly exchangeRate: ExchangeRateService,
     ) {}
 
     @Inject()
@@ -90,7 +92,7 @@ export class BillingService implements OnInit {
      * @returns Invoice ID and payment URL.
      * @throws {Error} If the subscription doesn't exist or one-time was already purchased.
      */
-    async createPayment(subscriptionId: string, uid: string, providerName: string, couponCode?: string, prevSubscriberId?: string, clientIp?: string, origin?: string, successUrl?: string) {
+    async createPayment(subscriptionId: string, uid: string, providerName: string, couponCode?: string, prevSubscriberId?: string, clientIp?: string, origin?: string, successUrl?: string, variantId?: string) {
         const invoiceRepo = AppDataSource.getRepository(Invoice);
         const subscriberRepo = AppDataSource.getRepository(Subscriber);
         const subscriptionRepo = AppDataSource.getRepository(Subscription);
@@ -217,17 +219,47 @@ export class BillingService implements OnInit {
 
 
 
+        // Resolve variant and convert currency if needed.
+        let variantData: { id: string; currency: string; convertedAmount: number } | undefined;
+        let providerAmount: number | null = null;
+        let providerCurrency: string | null = null;
+
+        if (variantId) {
+            const providerInfo = this.engine.getProviders().find(p => p.id === providerName);
+            const variant = providerInfo?.variants.find(v => v.id === variantId);
+            if (!variant) {
+                throw new BadRequest(`Unknown variant "${variantId}" for provider "${providerName}"`);
+            }
+
+            if (variant.currency.toLowerCase() !== subscription.currency.toLowerCase()) {
+                const convertedAmount = await this.exchangeRate.convert(
+                    invoiceAmount,
+                    subscription.currency,
+                    variant.currency,
+                );
+                variantData = { id: variant.id, currency: variant.currency, convertedAmount };
+                providerAmount = convertedAmount;
+                providerCurrency = variant.currency;
+            } else {
+                // Same currency — no conversion, but still pass variant context.
+                variantData = { id: variant.id, currency: variant.currency, convertedAmount: invoiceAmount };
+            }
+        }
+
         // Generate payment link via engine.
         const link = await this.engine.createPaymentLink(providerName, {
             plan: { ...subscription, amount: invoiceAmount, invoiceId: invoice.id },
             user: { uid, subscriberId: subscriber.id },
             origin,
             clientIp,
+            variant: variantData,
         });
 
         // Persist provider data on the invoice.
         invoice.paymentUrl = link.url;
         invoice.providerInvoiceId = link.id ?? null;
+        invoice.providerAmount = providerAmount;
+        invoice.providerCurrency = providerCurrency;
         await invoiceRepo.save(invoice);
 
         return { invoiceId: invoice.id, paymentUrl: link.url };

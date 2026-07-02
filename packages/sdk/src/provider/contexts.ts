@@ -130,6 +130,33 @@ export interface PaymentContext {
      * Use this to pass provider-specific options (e.g. locale, return URL).
      */
     metadata?: Record<string, any>;
+    /**
+     * Selected provider variant, present when the checkout user picked a
+     * specific sub-option (e.g. a target currency for card payments).
+     *
+     * When set, `variant.convertedAmount` and `variant.currency` reflect the
+     * amount auto-converted from the plan's currency to the variant's target
+     * currency. Providers should use these values when calling their gateway.
+     *
+     * @example
+     * ```ts
+     * @CreatePaymentLink()
+     * async createLink(ctx: PaymentContext) {
+     *   // Use converted amount if a variant was selected, otherwise plan amount
+     *   const amount = ctx.variant?.convertedAmount ?? ctx.plan.amount;
+     *   const currency = ctx.variant?.currency ?? ctx.plan.currency;
+     *   // ...
+     * }
+     * ```
+     */
+    variant?: {
+        /** Variant identifier (matches `ProviderVariant.id`). */
+        id: string;
+        /** Target currency for this variant (ISO 4217). */
+        currency: string;
+        /** Plan amount converted to the variant's currency, in minor units. */
+        convertedAmount: number;
+    };
 }
 
 // ─── ValidateWebhook / IncomingWebhook ctx ───────────────────────────

@@ -33,6 +33,7 @@ export function SecureCheckout() {
   const params = useParams<{ token: string }>();
   const [info, setInfo] = createSignal<any>(null);
   const [selectedProvider, setSelectedProvider] = createSignal("");
+  const [selectedVariant, setSelectedVariant] = createSignal<string | null>(null);
   const [loading, setLoading] = createSignal(false);
   const [error, setError] = createSignal("");
   const [tokenError, setTokenError] = createSignal("");
@@ -63,8 +64,14 @@ export function SecureCheckout() {
 
       // resolve returns subscription, providers, and checkoutConfig
       setInfo(data);
-      if (data.providers.length === 1)
-        setSelectedProvider(data.providers[0].id);
+      if (data.providers.length === 1) {
+        const solo = data.providers[0];
+        setSelectedProvider(solo.id);
+        // Auto-select variant if provider has exactly one.
+        if (solo.variants?.length === 1) {
+          setSelectedVariant(solo.variants[0].id);
+        }
+      }
 
       // Pre-applied coupon from resolve
       if (data.coupon) {
@@ -126,6 +133,7 @@ export function SecureCheckout() {
         body: JSON.stringify({
           token: params.token,
           provider: selectedProvider(),
+          variant: selectedVariant() || undefined,
           couponCode: couponApplied()
             ? couponApplied().coupon?.code || couponApplied().code
             : undefined,
@@ -455,28 +463,112 @@ export function SecureCheckout() {
                   {(provider: {
                     id: string;
                     displayName: string | Record<string, string>;
-                  }) => (
-                    <label
-                      class={`provider-option ${selectedProvider() === provider.id ? "selected" : ""}`}
-                      onClick={() => setSelectedProvider(provider.id)}
-                    >
-                      <input
-                        type="radio"
-                        name="provider"
-                        checked={selectedProvider() === provider.id}
-                      />
-                      <div class="provider-radio" />
-                      <span class="provider-name">
-                        {resolveDisplayName(provider.displayName, locale())}
-                      </span>
-                    </label>
-                  )}
+                    variants?: {
+                      id: string;
+                      displayName: string | Record<string, string>;
+                      currency: string;
+                      convertedAmount?: number | null;
+                    }[];
+                  }) => {
+                    const hasVariants = () => (provider.variants?.length ?? 0) > 0;
+                    const isExpanded = () => selectedProvider() === provider.id;
+
+                    return (
+                      <>
+                        <label
+                          class={`provider-option ${
+                            selectedProvider() === provider.id ? "selected" : ""
+                          } ${hasVariants() ? "has-variants" : ""}`}
+                          onClick={() => {
+                            setSelectedProvider(provider.id);
+                            if (!hasVariants()) {
+                              setSelectedVariant(null);
+                            } else if (provider.variants!.length === 1) {
+                              setSelectedVariant(provider.variants![0].id);
+                            } else {
+                              setSelectedVariant(null);
+                            }
+                          }}
+                        >
+                          <input
+                            type="radio"
+                            name="provider"
+                            checked={selectedProvider() === provider.id}
+                          />
+                          <div class="provider-radio" />
+                          <span class="provider-name">
+                            {resolveDisplayName(provider.displayName, locale())}
+                          </span>
+                        </label>
+
+                        {/* ── Variant sub-options ── */}
+                        <Show when={hasVariants() && isExpanded()}>
+                          <div class="variant-list">
+                            <For each={provider.variants}>
+                              {(variant) => (
+                                <label
+                                  class={`variant-option ${
+                                    selectedVariant() === variant.id
+                                      ? "selected"
+                                      : ""
+                                  }`}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setSelectedVariant(variant.id);
+                                  }}
+                                >
+                                  <input
+                                    type="radio"
+                                    name="variant"
+                                    checked={selectedVariant() === variant.id}
+                                  />
+                                  <div class="variant-radio" />
+                                  <span class="variant-name">
+                                    {resolveDisplayName(
+                                      variant.displayName,
+                                      locale(),
+                                    )}
+                                  </span>
+                                  <Show
+                                    when={
+                                      variant.convertedAmount != null &&
+                                      variant.currency.toLowerCase() !==
+                                        info()
+                                          .subscription.currency.toLowerCase()
+                                    }
+                                  >
+                                    <span class="variant-price">
+                                      ≈{" "}
+                                      {formatPrice(
+                                        variant.convertedAmount!,
+                                        variant.currency,
+                                      )}
+                                    </span>
+                                  </Show>
+                                </label>
+                              )}
+                            </For>
+                          </div>
+                        </Show>
+                      </>
+                    );
+                  }}
                 </For>
               </div>
 
               <button
                 class="pay-btn"
-                disabled={!selectedProvider() || loading()}
+                disabled={
+                  !selectedProvider() ||
+                  loading() ||
+                  (info()
+                    .providers.find(
+                      (p: { id: string; variants?: { id: string }[] }) =>
+                        p.id === selectedProvider(),
+                    )
+                    ?.variants?.length > 0 &&
+                    !selectedVariant())
+                }
                 onClick={pay}
               >
                 {loading()

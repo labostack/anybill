@@ -18,6 +18,7 @@ import { ErrorCode } from "../../core/errors/ErrorCode";
 import { Account } from "../../entities/Account";
 import { BillingService } from "../../services/BillingService";
 import { CouponService } from "../../services/CouponService";
+import { ExchangeRateService } from "../../services/ExchangeRateService";
 import { CheckoutPayBody } from "../../models/CheckoutModels";
 import { verifyCheckoutToken } from "../../core/checkoutToken";
 
@@ -27,6 +28,7 @@ export class CheckoutController {
     constructor(
         private readonly billing: BillingService,
         private readonly couponService: CouponService,
+        private readonly exchangeRate: ExchangeRateService,
     ) {}
 
     /**
@@ -43,7 +45,7 @@ export class CheckoutController {
     @Description("Verifies the checkout token, creates a subscriber (if needed), generates an invoice, and returns a payment URL.")
     @Returns(200)
     @Returns(400)
-    async pay(@BodyParams() { token, provider, couponCode }: CheckoutPayBody, @Req() req: any) {
+    async pay(@BodyParams() { token, provider, variant, couponCode }: CheckoutPayBody, @Req() req: any) {
         const payload = verifyCheckoutToken(token);
         if (!payload) {
             throw new AppError(400, ErrorCode.INVALID_CHECKOUT_TOKEN, "Invalid or expired checkout token");
@@ -74,6 +76,7 @@ export class CheckoutController {
             clientIp,
             origin,
             payload.success_url,
+            variant,
         );
     }
 
@@ -193,6 +196,35 @@ export class CheckoutController {
             };
         }
 
+        // Pre-compute converted amounts for provider variants.
+        // This lets the checkout UI show "≈ X GBP" next to each variant.
+        const providers = this.billing.getProviders();
+        const providersWithRates = await Promise.all(
+            providers.map(async (p) => {
+                if (p.variants.length === 0) return p;
+
+                const variantsWithAmounts = await Promise.all(
+                    p.variants.map(async (v) => {
+                        if (v.currency.toLowerCase() === subscription.currency.toLowerCase()) {
+                            return { ...v, convertedAmount: subscription.amount };
+                        }
+                        try {
+                            const converted = await this.exchangeRate.convert(
+                                subscription.amount,
+                                subscription.currency,
+                                v.currency,
+                            );
+                            return { ...v, convertedAmount: converted };
+                        } catch {
+                            // If rate lookup fails, omit the converted amount.
+                            return { ...v, convertedAmount: null };
+                        }
+                    }),
+                );
+                return { ...p, variants: variantsWithAmounts };
+            }),
+        );
+
         return {
             sub_id: payload.sub_id,
             uid: payload.uid,
@@ -206,7 +238,7 @@ export class CheckoutController {
                 intervalCount: subscription.intervalCount,
                 trialDays: subscription.trialDays,
             },
-            providers: this.billing.getProviders(),
+            providers: providersWithRates,
             checkoutConfig: account?.checkoutConfig || {},
             coupon,
             existingSubscription,

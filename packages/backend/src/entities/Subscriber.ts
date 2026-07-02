@@ -76,7 +76,7 @@ export class Subscriber {
     @Column({ type: "varchar", default: "manual" })
     renewalMode!: "manual" | "provider_managed";
 
-    /** Payment provider used for the current subscription period (e.g. `"stripe"`, `"freekassa"`). */
+    /** Payment provider used for the current subscription period (e.g. `"stripe"`, `"paypal"`). */
     @Column({ type: "varchar", nullable: true })
     provider!: string | null;
 

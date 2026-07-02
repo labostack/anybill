@@ -69,7 +69,7 @@ export type {
 
 // ─── Provider API ───────────────────────────────────────────────────
 export { AnybillProvider } from "./provider/AnybillProvider";
-export type { ProviderCapability } from "./provider/AnybillProvider";
+export type { ProviderCapability, ProviderVariant } from "./provider/AnybillProvider";
 export { CreatePaymentLink, ValidateWebhook, IncomingWebhook, RefundPayment, CancelPayment } from "./provider/decorators";
 export { PaymentLink, Payment } from "./provider/builders";
 export type { PaymentLinkResult, PaymentResult, PaymentAction } from "./provider/builders";

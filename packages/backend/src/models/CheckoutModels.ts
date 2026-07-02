@@ -24,6 +24,14 @@ export class CheckoutPayBody {
     @MinLength(1)
     provider!: string;
 
+    /**
+     * Optional provider variant identifier.
+     * When a provider exposes multiple sub-options (e.g. different currencies),
+     * the checkout UI sends the selected variant's `id` here.
+     */
+    @Optional()
+    variant?: string;
+
     /** Optional coupon / promo code to apply to this payment. */
     @Optional()
     couponCode?: string;

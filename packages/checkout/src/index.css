@@ -352,6 +352,106 @@ body {
     height: 0;
 }
 
+/* ─── Variant Sub-Options ──────────────────────────── */
+
+.provider-option.has-variants.selected {
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+    margin-bottom: 0;
+}
+
+.variant-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    border: 1.5px solid var(--accent);
+    border-top: none;
+    border-radius: 0 0 var(--radius) var(--radius);
+    overflow: hidden;
+    background: rgba(99, 179, 237, 0.03);
+    margin-top: -8px; /* counteract .provider-list gap to stay flush with provider-option */
+    margin-bottom: 0;
+    box-shadow: 0 0 0 3px var(--accent-glow);
+}
+
+.variant-option {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 18px 12px 42px;
+    cursor: pointer;
+    transition: all 0.15s var(--ease);
+    font-family: var(--font);
+    font-size: 13px;
+    font-weight: 400;
+    color: var(--text-secondary);
+    border-top: 1px solid var(--border);
+    position: relative;
+}
+
+.variant-option:first-child {
+    border-top: 1px solid rgba(99, 179, 237, 0.15);
+}
+
+.variant-option:hover {
+    background: rgba(99, 179, 237, 0.06);
+    color: var(--text);
+}
+
+.variant-option.selected {
+    background: rgba(99, 179, 237, 0.08);
+    color: var(--text);
+}
+
+.variant-radio {
+    width: 14px;
+    height: 14px;
+    border: 1.5px solid var(--border-hover);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: all 0.15s var(--ease);
+}
+
+.variant-option.selected .variant-radio {
+    border-color: var(--accent);
+}
+
+.variant-radio::after {
+    content: '';
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--accent);
+    transform: scale(0);
+    transition: transform 0.12s var(--ease);
+}
+
+.variant-option.selected .variant-radio::after {
+    transform: scale(1);
+}
+
+.variant-name {
+    flex: 1;
+}
+
+.variant-price {
+    font-size: 12px;
+    color: var(--text-muted);
+    font-weight: 500;
+    white-space: nowrap;
+}
+
+/* Hide native radio */
+.variant-option input[type="radio"] {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
 /* ─── Pay Button ───────────────────────────────────── */
 
 .pay-btn {

@@ -20,7 +20,7 @@
  * ```
  */
 
-import { AnybillProvider, DisplayName } from "./AnybillProvider";
+import { AnybillProvider, DisplayName, type ProviderVariant } from "./AnybillProvider";
 import { BillingError } from "./BillingError";
 import { getMethodForRole, getRegisteredRoles, hasMethod } from "./ProviderRegistry";
 import type { PaymentLinkResult, PaymentResult } from "./builders";
@@ -59,6 +59,18 @@ export interface PaymentContext {
      */
     clientIp?: string;
     metadata?: Record<string, any>;
+    /**
+     * Selected provider variant. Present when the user chose a specific
+     * sub-option on the checkout page (e.g. a target currency).
+     */
+    variant?: {
+        /** Variant identifier (matches `ProviderVariant.id`). */
+        id: string;
+        /** Target currency for this variant (ISO 4217). */
+        currency: string;
+        /** Plan amount converted to the variant's currency, in minor units. */
+        convertedAmount: number;
+    };
 }
 
 /**
@@ -77,6 +89,11 @@ export interface ProviderInfo {
     displayName: DisplayName;
     /** Supported capabilities (e.g. `["one_time", "recurring"]`). */
     capabilities: string[];
+    /**
+     * Sub-options for this provider (e.g. different currencies).
+     * Empty array if the provider has no variants.
+     */
+    variants: ProviderVariant[];
 }
 
 // ─── Internal Types ─────────────────────────────────────────────────
@@ -154,6 +171,7 @@ export class BillingEngine {
             id,
             displayName: instance.displayName,
             capabilities: [...instance.capabilities],
+            variants: [...instance.variants],
         }));
     }
 

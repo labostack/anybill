@@ -44,7 +44,7 @@
 
 // ─── Provider Base ──────────────────────────────────────────────────
 export { AnybillProvider } from "./AnybillProvider";
-export type { ProviderCapability, DisplayName } from "./AnybillProvider";
+export type { ProviderCapability, DisplayName, ProviderVariant } from "./AnybillProvider";
 
 // ─── Decorators ─────────────────────────────────────────────────────
 export { CreatePaymentLink, ValidateWebhook, IncomingWebhook, RefundPayment, CancelPayment } from "./decorators";

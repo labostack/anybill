@@ -64,6 +64,16 @@ export interface Invoice {
     discountAmount?: number;
     /** Reference to the coupon used for this invoice. */
     couponId?: string;
+    /**
+     * Actual amount sent to the payment provider, in minor units.
+     * Present only when currency conversion occurred (provider variant).
+     */
+    providerAmount?: number;
+    /**
+     * Currency the provider actually charged (ISO 4217).
+     * Present only when it differs from the plan's currency.
+     */
+    providerCurrency?: string;
     status: "pending" | "paid" | "failed" | "refunded" | "cancelled";
     paidAt: string | null;
 }

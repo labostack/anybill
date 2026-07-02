@@ -93,6 +93,22 @@ export class Invoice {
     @Column({ type: "text", nullable: true, default: null })
     successUrl!: string | null;
 
+    /**
+     * Actual amount sent to the payment provider, in minor units.
+     * Populated only when currency conversion occurred (variant with different currency).
+     * `null` when the payment was made in the plan's original currency.
+     */
+    @Column({ type: "integer", nullable: true, default: null })
+    providerAmount!: number | null;
+
+    /**
+     * Currency code (ISO 4217) the payment provider actually charged.
+     * Populated only when it differs from the plan's currency (i.e. variant conversion).
+     * `null` when no conversion occurred.
+     */
+    @Column({ type: "varchar", length: 3, nullable: true, default: null })
+    providerCurrency!: string | null;
+
     /** Timestamp when the payment was confirmed. */
     @Column({ type: "datetime", nullable: true })
     paidAt!: Date | null;
