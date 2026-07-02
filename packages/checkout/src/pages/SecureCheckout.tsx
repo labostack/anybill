@@ -11,6 +11,7 @@ import {
 } from "lucide-solid";
 import { useI18n } from "../locales/i18n";
 import { isEmbedded } from "../App";
+import { LanguageSwitcher } from "../LanguageSwitcher";
 
 const API = "/api/checkout";
 
@@ -213,6 +214,7 @@ export function SecureCheckout() {
                   <span class="co-brand-name">
                     {info().checkoutConfig?.brandName || t("common.checkout")}
                   </span>
+                  <LanguageSwitcher />
                 </div>
               </Show>
 
@@ -505,6 +507,7 @@ export function SecureCheckout() {
 
                         {/* Variant sub-options */}
                         <Show when={hasVariants() && isSelected()}>
+                          <div class="co-variants-scroll">
                           <For each={provider.variants}>
                             {(variant) => (
                               <button
@@ -546,6 +549,7 @@ export function SecureCheckout() {
                               </button>
                             )}
                           </For>
+                          </div>
                         </Show>
                       </>
                     );
